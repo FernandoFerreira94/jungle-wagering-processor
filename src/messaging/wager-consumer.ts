@@ -72,7 +72,12 @@ export class WagerConsumer implements OnApplicationBootstrap, BeforeApplicationS
 
   /** Recebe um lote e processa. Mensagens do mesmo grupo (wallet) seguem em ordem; grupos diferentes em paralelo. */
   async pollOnce(waitSeconds = 0): Promise<number> {
-    const messages = await this.sqs.receive(this.config.queues.transactions, 10, waitSeconds);
+    const messages = await this.sqs.receive(
+      this.config.queues.transactions,
+      10,
+      waitSeconds,
+      this.config.sqsVisibilitySeconds,
+    );
     const groups = new Map<string, Message[]>();
     for (const message of messages) {
       const group = message.Attributes?.MessageGroupId ?? 'default';

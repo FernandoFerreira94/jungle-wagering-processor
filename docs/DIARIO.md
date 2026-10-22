@@ -124,3 +124,19 @@ Um sistema financeiro precisa ser fácil de investigar quando algo dá errado.
 - **Logs em JSON**, uma linha por acontecimento, sempre com os identificadores que ligam os pontos: `correlationId`, `messageId`, `transactionId`, `walletId` e `providerId`. Valores de dinheiro, saldos e payloads completos **nunca** vão para o log. Isso é filtrado automaticamente, e um teste garante.
 - **Métricas** em `/metrics` (formato Prometheus): transações por tipo e resultado, repetições detectadas, duplicatas da fila, mensagens devolvidas e enviadas para a DLQ, conflitos de trava, avisos pendentes e há quanto tempo o mais antigo espera (o "atraso" da caixa de saída), tempo de processamento e divergências da conferência.
 - **Saúde** separada em "vivo" e "pronto", como já descrito na fase 6.
+
+## Fase 12 — Prova de fogo (concorrência e quedas)
+
+Aqui testamos o sistema do jeito que ele vai sofrer na vida real: **três cópias rodando juntas**, todas usando o mesmo banco e a mesma fila, sem nenhum dublê (banco e fila de verdade).
+
+- **A mesma aposta enviada 50 vezes ao mesmo tempo**, espalhada pelas 3 cópias: o saldo foi debitado **uma vez só**. As outras 49 receberam a mesma resposta da primeira.
+- **Saldo de 100 e duas apostas de 80 ao mesmo tempo:** uma passa e a outra é recusada por falta de saldo. O saldo nunca ficou negativo.
+- **20 carteiras recebendo 10 apostas cada, tudo em paralelo:** uma carteira não atrapalha a outra e todos os saldos fecharam certos.
+- **300 mensagens na fila** (150 apostas, cada uma enviada duas vezes) com as 3 cópias lendo: cada aposta foi aplicada uma vez só.
+- **Três carteiros entregando avisos ao mesmo tempo:** todo aviso salvo foi entregue na fila de eventos.
+- **Cancelamentos (REFUND e ROLLBACK) chegando antes da aposta original:** ficaram esperando, e quando a aposta chegou foram resolvidos sozinhos. O saldo voltou ao valor inicial.
+- **A mesma aposta pelo HTTP e pela fila** (já testado na fase 10): vale uma vez.
+- **Queda entre salvar e confirmar a mensagem:** forçamos uma cópia a "morrer" logo depois de salvar e antes de avisar a fila. A fila entregou a mensagem de novo para outra cópia, que reconheceu e **não debitou duas vezes**.
+- **Derrubada brutal (kill -9) no meio do trabalho:** com 15 carteiras e 210 apostas em andamento, matamos duas cópias e subimos outras duas. No final, todas as apostas existiam uma vez só, todo saldo batia com o extrato, a conferência deu "consistente" e todos os avisos da caixa de saída foram entregues.
+
+Rodamos esses testes várias vezes seguidas para garantir que não passaram "por sorte".
