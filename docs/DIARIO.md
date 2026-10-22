@@ -93,3 +93,12 @@ Detalhes que testamos:
 - A busca da aposta original é sempre **do mesmo provedor**. Um id igual vindo de outro provedor não serve.
 - Várias cópias do ajudante rodando juntas aplicam o estorno **uma única vez**.
 - Se der um erro permanente ao reprocessar, a transação vai para **FAILED**: estado final, auditável, que não some.
+
+## Fase 9 — O carteiro dos avisos (outbox publisher)
+
+O carteiro lê os avisos anotados na caixa de saída e os entrega na fila de eventos (`wager-events.fifo`). As regras dele:
+
+- **Só entrega o que já foi salvo.** Como o aviso nasce junto com a mudança de saldo, se o sistema cair logo depois de salvar, o aviso continua lá esperando. Testamos isso: uma cópia do sistema salvou a aposta sem entregar, e **outra cópia** entregou o aviso depois.
+- **Vários carteiros ao mesmo tempo não brigam.** Cada um pega um lote diferente (os outros pulam o que já está sendo entregue). Testamos com três carteiros juntos: tudo foi entregue.
+- **Se ele cair no meio da entrega**, o lote volta para a pilha e é entregue de novo, **com o mesmo identificador**. Quem recebe reconhece e ignora a repetição. Entregar duas vezes é seguro; perder, nunca.
+- **Se a fila estiver fora do ar**, o aviso continua pendente e o carteiro espera cada vez mais antes de tentar de novo.

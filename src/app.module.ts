@@ -6,6 +6,7 @@ import type { AppConfig } from './config';
 import { Database } from './database/database';
 import { ormConfig } from './database/mikro-orm.config';
 import { HealthController } from './health/health.controller';
+import { OutboxPublisher } from './messaging/outbox-publisher.worker';
 import { OutboxRepository } from './messaging/outbox.repository';
 import { SqsGateway } from './messaging/sqs';
 import { MetricsController } from './metrics/metrics.controller';
@@ -61,6 +62,7 @@ export class AppModule {
         WalletService,
         ProcessWagerUseCase,
         PendingReferenceWorker,
+        OutboxPublisher,
       ],
     };
   }
