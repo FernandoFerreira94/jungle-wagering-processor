@@ -55,3 +55,16 @@ O desafio pede que as garantias mais importantes estejam **no próprio banco**, 
 - Uma transação que já terminou (processada, rejeitada ou falha) **não muda mais**, e nenhuma transação é apagada.
 
 A estrutura do banco é criada por uma "migração" versionada, que também sabe se desfazer. Os testes desta fase mexem direto no banco, como um invasor faria, e confirmam que cada regra barra a tentativa.
+
+## Fase 6 — Abrindo as portas: carteiras, consultas e saúde
+
+Agora o sistema conversa com o mundo por HTTP:
+
+- **Criar carteira** (`POST /wallets`). Se ela já nasce com saldo, esse saldo vira uma transação interna de "abertura" com a sua linha no extrato, tudo salvo junto. Tentar criar uma segunda carteira para o mesmo jogador e moeda dá conflito (409).
+- **Consultar** a carteira e o extrato. O extrato vem em páginas, com um "marcador" opaco para pedir a próxima página sem pular nem repetir linhas.
+- **Conferência (reconciliação):** recalcula o saldo somando o extrato e compara com o saldo guardado. Se divergir, **não corrige escondido**: registra no log, conta numa métrica e avisa na resposta. No teste, "corrompemos" o banco de propósito para provar que isso funciona.
+- **Saúde:** `/health/live` diz se o processo está vivo e `/health/ready` diz se o banco e a fila respondem. Esses dois não pedem login.
+
+Os erros seguem um padrão único em todos os endpoints: 400 para pedido malformado, 404 para não encontrado, 409 para conflito, 422 para regra de negócio, 202 para "aceito, esperando" e 503 para "falha temporária, tente de novo". Assim o provedor sabe o que fazer só pelo número.
+
+**Sobre login:** o desafio diz que autenticação não vale pontos e que, se feita, deve usar um provedor de identidade externo (como o Keycloak). Decidimos **não implementar agora** e deixar uma "tomada" pronta no código (`ProviderAuthGuard` + `ProviderIdentityPort`), com o desenho completo documentado. Isso mantém o foco no que vale nota.

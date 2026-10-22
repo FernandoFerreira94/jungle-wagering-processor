@@ -72,7 +72,7 @@ export abstract class IntegrationEvent<T> {
       causationId: this.causationId,
       occurredAt: this.occurredAt.toISOString(),
       version: this.version,
-      data: this.data as T,
+      data: { ...this.data } as T,
     };
   }
 }
