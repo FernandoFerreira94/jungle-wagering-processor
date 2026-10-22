@@ -13,6 +13,7 @@ import { JsonLogger } from './shared/json-logger';
 import { Metrics } from './shared/metrics';
 import { APP_CONFIG, PROVIDER_IDENTITY } from './tokens';
 import { InboxRepository } from './messaging/inbox.repository';
+import { PendingReferenceWorker } from './wagering/pending-reference.worker';
 import { ProcessWagerUseCase } from './wagering/process-wager.use-case';
 import { WageringController } from './wagering/wagering.controller';
 import { WagerTransactionRepository } from './wagering/wager-transaction.repository';
@@ -59,6 +60,7 @@ export class AppModule {
         InboxRepository,
         WalletService,
         ProcessWagerUseCase,
+        PendingReferenceWorker,
       ],
     };
   }

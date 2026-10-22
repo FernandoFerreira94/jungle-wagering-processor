@@ -82,3 +82,14 @@ Se qualquer passo falhar no meio, **nada** é salvo. Testamos isso simulando uma
 Se duas cópias do sistema receberem exatamente o mesmo pedido no mesmo instante, a segunda esbarra na regra de unicidade do banco, relê o que a primeira gravou e responde como repetição. Sem débito em dobro.
 
 As respostas seguem o resultado: 200 processada, 422 rejeitada (com o código do motivo), 202 aguardando a aposta original, 409 conflito de chave, 503 falha temporária.
+
+## Fase 8 — Quando o estorno chega antes da aposta
+
+Na vida real, a mensagem de "cancele a aposta X" às vezes chega **antes** da própria aposta X. O sistema não descarta nem aplica no escuro: guarda o estorno como **"aguardando a aposta original"** (resposta 202) e avisa por evento.
+
+Um ajudante (worker) passa de tempos em tempos e tenta de novo. Cada nova tentativa espera o dobro da anterior (1 s, 2 s, 4 s… até 1 minuto entre tentativas). Quando a aposta original chega, o estorno é aplicado normalmente. Se ela nunca chegar, depois de 10 tentativas (uns 5 minutos) o estorno é **rejeitado** com o motivo `REFERENCE_NOT_FOUND`, e isso também gera evento. Esse limite dá margem para atrasos normais de fila sem deixar pendências eternas.
+
+Detalhes que testamos:
+- A busca da aposta original é sempre **do mesmo provedor**. Um id igual vindo de outro provedor não serve.
+- Várias cópias do ajudante rodando juntas aplicam o estorno **uma única vez**.
+- Se der um erro permanente ao reprocessar, a transação vai para **FAILED**: estado final, auditável, que não some.
