@@ -32,3 +32,12 @@ Aqui ficam as regras de negócio puras, sem banco e sem framework, como uma "lei
 Cada rejeição tem um **código de motivo** fixo (por exemplo `INSUFFICIENT_FUNDS` para aposta sem saldo e `REVERSAL_INSUFFICIENT_FUNDS` para um estorno que deixaria o saldo negativo). Assim o provedor sabe se vale tentar de novo.
 
 Uma decisão nossa: **cada aposta só pode ser estornada uma vez**, seja por reembolso (REFUND) ou por cancelamento (ROLLBACK). O enunciado só proíbe repetir o mesmo tipo, mas permitir os dois daria crédito em dobro, o que ele mesmo proíbe.
+
+## Fase 4 — Caixa de entrada e caixa de saída
+
+Dois conceitos que garantem que nenhuma mensagem se perca nem seja contada duas vezes:
+
+- **Caixa de entrada (inbox):** cada mensagem que chega da fila fica anotada no banco com o seu identificador. Se a mesma mensagem chegar de novo, o sistema vê a anotação e não repete o trabalho.
+- **Caixa de saída (outbox):** quando algo importante acontece (aposta processada, saldo mudou, aposta rejeitada, aposta esperando a original), o aviso não é enviado na hora. Ele é **anotado no banco junto com a mudança de saldo**, no mesmo "pacote". Um carteiro separado lê essas anotações depois e envia. Assim nunca sai aviso de algo que não foi salvo, e nada salvo fica sem aviso.
+
+Se o envio falhar, o carteiro espera um pouco mais a cada tentativa (2 s, 4 s, 8 s… até no máximo 1 minuto) e tenta de novo, para não martelar um serviço que está fora do ar. Cada aviso tem um identificador único, então quem recebe consegue ignorar repetições.
