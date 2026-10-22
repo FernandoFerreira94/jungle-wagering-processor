@@ -41,3 +41,17 @@ Dois conceitos que garantem que nenhuma mensagem se perca nem seja contada duas 
 - **Caixa de saída (outbox):** quando algo importante acontece (aposta processada, saldo mudou, aposta rejeitada, aposta esperando a original), o aviso não é enviado na hora. Ele é **anotado no banco junto com a mudança de saldo**, no mesmo "pacote". Um carteiro separado lê essas anotações depois e envia. Assim nunca sai aviso de algo que não foi salvo, e nada salvo fica sem aviso.
 
 Se o envio falhar, o carteiro espera um pouco mais a cada tentativa (2 s, 4 s, 8 s… até no máximo 1 minuto) e tenta de novo, para não martelar um serviço que está fora do ar. Cada aviso tem um identificador único, então quem recebe consegue ignorar repetições.
+
+## Fase 5 — O banco como última linha de defesa
+
+O desafio pede que as garantias mais importantes estejam **no próprio banco**, não só no código. Assim, mesmo que alguém escreva um código errado (ou mexa direto no banco), o banco recusa. Foi isso que montamos:
+
+- O saldo de uma carteira **não pode ficar negativo**. O banco recusa.
+- Só existe **uma carteira por jogador e moeda**.
+- O mesmo pedido (mesma chave de idempotência, ou mesmo par provedor + id da transação) **não pode ser gravado duas vezes**.
+- O extrato **não pode ser editado, apagado nem esvaziado**. Cada linha confere a própria conta (antes ± valor = depois).
+- Na hora de confirmar, o banco confere se **o saldo da carteira é igual à última linha do extrato**. Se não for, nada é salvo.
+- Uma aposta **só pode ser estornada uma vez**, mesmo com várias cópias do sistema tentando ao mesmo tempo.
+- Uma transação que já terminou (processada, rejeitada ou falha) **não muda mais**, e nenhuma transação é apagada.
+
+A estrutura do banco é criada por uma "migração" versionada, que também sabe se desfazer. Os testes desta fase mexem direto no banco, como um invasor faria, e confirmam que cada regra barra a tentativa.
