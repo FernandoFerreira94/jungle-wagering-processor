@@ -65,7 +65,25 @@ O roteiro conversa com as 3 cópias e mostra, passo a passo, com ✔ verde:
 
 O resultado esperado termina com **"Tudo certo."**
 
-## Passo 5 (opcional): ver por dentro
+## Passo 5: testar com uma tela (opcional)
+
+Existe uma tela simples para você brincar com o sistema. Ela **não faz parte da entrega**: fica na pasta `playground/` e só sobe se você pedir.
+
+```bash
+docker compose --profile playground up -d
+```
+
+Abra http://localhost:8080 no navegador. Na tela você pode:
+
+- criar uma carteira e ver o **saldo** e o **extrato** se atualizando sozinhos;
+- mandar apostas, vitórias, derrotas e cancelamentos, escolhendo **qual das 3 cópias** recebe;
+- clicar em **"Repetir a última"** para simular o provedor reenviando, e ver que não cobra de novo;
+- usar os **cenários prontos**: duas apostas ao mesmo tempo, a mesma aposta 20 vezes em paralelo, cancelamento antes da aposta, mensagem duplicada na fila e mesma chave com valor diferente;
+- clicar em **"Conferir saldo × extrato"**.
+
+Cada resposta aparece em "O que aconteceu", explicada em português (verde: aplicada; amarelo: esperando; vermelho: recusada, com o motivo).
+
+## Passo 6 (opcional): ver por dentro
 
 - **O que cada cópia está fazendo:** `docker compose logs -f app-1 app-2 app-3`. Cada linha é um acontecimento, em JSON, sem valores de dinheiro.
 - **Números do sistema:** http://localhost:3001/metrics (quantas apostas, repetições detectadas, mensagens com problema etc.).
@@ -76,10 +94,10 @@ O resultado esperado termina com **"Tudo certo."**
   ```
   São mais de 160 testes, incluindo derrubar cópias do sistema no meio do trabalho.
 
-## Passo 6: desligar
+## Passo 7: desligar
 
 ```bash
-docker compose down        # desliga tudo
+docker compose --profile playground down   # desliga tudo, inclusive a tela
 docker compose down -v     # desliga e apaga os dados do banco
 ```
 

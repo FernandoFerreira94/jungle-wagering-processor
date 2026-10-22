@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wagering Playground</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #16181d; --muted: #646b78; --line: #e3e6eb;
+    --accent: #3b5bdb; --accent-text: #ffffff; --ok: #1f8a4c; --warn: #b86e00; --bad: #c92a2a;
+    --ok-bg: #e7f6ee; --warn-bg: #fff4e0; --bad-bg: #fdecec; --chip: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #171a21; --text: #e8eaee; --muted: #9aa1ad; --line: #2a2f39;
+      --accent: #6d8bff; --accent-text: #0f1115; --ok: #4cc283; --warn: #f0a53a; --bad: #ff6b6b;
+      --ok-bg: #12291d; --warn-bg: #2d2210; --bad-bg: #2e1517; --chip: #222733;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--card); flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  h1 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  main { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 20px; padding: 20px 24px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+  .instances { display: flex; gap: 8px; }
+  .dot { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--chip); font-size: 13px; }
+  .dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.up::before { background: var(--ok); } .dot.down::before { background: var(--bad); }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button { font: inherit; border-radius: 8px; padding: 9px 14px; border: 1px solid var(--line); background: var(--chip); color: var(--text); cursor: pointer; transition: transform .08s ease, opacity .15s; }
+  button:hover { opacity: .88; } button:active { transform: scale(.98); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; font-weight: 600; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .scenarios button { display: block; width: 100%; text-align: left; margin-bottom: 8px; }
+  .scenarios button span { display: block; color: var(--muted); font-size: 13px; }
+  .balance { font-size: 40px; font-weight: 700; letter-spacing: -.02em; transition: color .3s; }
+  .balance.flash { color: var(--accent); }
+  .meta { color: var(--muted); font-size: 13px; word-break: break-all; }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  td.num, th.num { text-align: right; }
+  .credit { color: var(--ok); } .debit { color: var(--bad); }
+  .log { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow: auto; }
+  .log li { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--muted); background: var(--chip); animation: in .25s ease; }
+  .log li.ok { border-color: var(--ok); background: var(--ok-bg); }
+  .log li.warn { border-color: var(--warn); background: var(--warn-bg); }
+  .log li.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .log .head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+  .log .what { font-weight: 600; margin: 2px 0; }
+  .tag { font-size: 12px; padding: 1px 7px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+  .check { margin-top: 10px; font-size: 14px; }
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wagering Playground <small>teste manual do sistema, fora da entrega</small></h1>
+  <div class="instances" id="instances" aria-label="Estado das instâncias"></div>
+</header>
+
+<main>
+  <div>
+    <section class="card">
+      <h2>Carteira</h2>
+      <div id="wallet-empty">
+        <label for="initial">Saldo inicial (R$)</label>
+        <input id="initial" value="100.00" inputmode="decimal">
+        <div class="actions"><button class="primary" id="create">Criar carteira</button></div>
+      </div>
+      <div id="wallet-view" hidden>
+        <div class="balance" id="balance">—</div>
+        <div class="meta" id="wallet-meta"></div>
+        <div class="actions">
+          <button id="reconcile">Conferir saldo × extrato</button>
+          <button id="new-wallet">Nova carteira</button>
+        </div>
+        <div class="check" id="check" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Enviar uma operação</h2>
+      <div class="row">
+        <div><label for="kind">Tipo</label>
+          <select id="kind">
+            <option value="BET">BET — aposta (debita)</option>
+            <option value="WIN">WIN — vitória (credita)</option>
+            <option value="LOSS">LOSS — derrota (não mexe)</option>
+            <option value="REFUND">REFUND — devolve uma aposta</option>
+            <option value="ROLLBACK">ROLLBACK — desfaz uma operação</option>
+          </select></div>
+        <div><label for="amount">Valor (R$)</label><input id="amount" value="10.00" inputmode="decimal"></div>
+      </div>
+      <div class="row">
+        <div><label for="reference">Referência</label><select id="reference"><option value="">(nenhuma)</option></select></div>
+        <div><label for="target">Cópia que recebe</label>
+          <select id="target"><option value="0">Aleatória</option><option value="1">Cópia 1</option><option value="2">Cópia 2</option><option value="3">Cópia 3</option></select></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="send">Enviar</button>
+        <button id="repeat" disabled title="Reenvia exatamente a última operação, com a mesma chave">Repetir a última</button>
+      </div>
+    </section>
+
+    <section class="card scenarios">
+      <h2>Cenários prontos</h2>
+      <button data-scenario="race">Duas apostas ao mesmo tempo<span>Duas BET em cópias diferentes, cada uma de 60% do saldo</span></button>
+      <button data-scenario="storm">A mesma aposta 20 vezes em paralelo<span>Retry em massa do provedor: tem que debitar uma vez</span></button>
+      <button data-scenario="early">Cancelamento antes da aposta<span>ROLLBACK chega primeiro, a BET depois</span></button>
+      <button data-scenario="queue">Aposta pela fila, entregue duas vezes<span>Mensagem SQS duplicada</span></button>
+      <button data-scenario="conflict">Mesma chave, valor diferente<span>Tentativa de reaproveitar uma chave</span></button>
+    </section>
+  </div>
+
+  <div>
+    <section class="card">
+      <h2>Extrato (ledger) — atualiza sozinho</h2>
+      <div id="ledger"><div class="empty">Crie uma carteira para começar.</div></div>
+    </section>
+    <section class="card">
+      <h2>O que aconteceu</h2>
+      <ul class="log" id="log" aria-live="polite"></ul>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const brl = (v) => `R$ ${v.replace('.', ',')}`;
+const state = { walletId: null, playerId: null, last: null, seq: 0, sent: [], run: Date.now().toString(36) };
+
+const FAILURES = {
+  INSUFFICIENT_FUNDS: 'saldo insuficiente para a aposta',
+  REVERSAL_INSUFFICIENT_FUNDS: 'desfazer deixaria o saldo negativo',
+  CURRENCY_MISMATCH: 'moeda diferente da carteira',
+  WALLET_PLAYER_MISMATCH: 'a carteira é de outro jogador',
+  REFERENCE_NOT_FOUND: 'a operação original nunca chegou',
+  REFERENCE_KIND_NOT_ALLOWED: 'esse tipo de operação não pode ser revertido assim',
+  REFERENCE_MISMATCH: 'a referência é de outra rodada, jogador ou carteira',
+  REFERENCE_AMOUNT_MISMATCH: 'o valor precisa ser igual ao da operação original',
+  REFERENCE_NOT_PROCESSED: 'a operação original foi recusada',
+  REFERENCE_ALREADY_REVERSED: 'essa operação já foi revertida',
+  INTERNAL_ERROR: 'erro interno',
+};
+
+function explain(r) {
+  const b = r.body || {};
+  if (r.status === 200 && b.idempotentReplay) return ['ok', 'Repetição reconhecida', `Devolveu a resposta original (saldo da época: ${brl(b.balance.amount)}). Não cobrou de novo.`];
+  if (r.status === 200) return ['ok', 'Aplicada', `Saldo depois: ${brl(b.balance.amount)}`];
+  if (r.status === 202) return ['warn', 'Esperando a operação original', 'Fica guardada e é aplicada sozinha quando a referência chegar.'];
+  if (r.status === 422) return ['bad', 'Recusada pela regra de negócio', `${FAILURES[b.failureCode] || b.failureCode} (${b.failureCode}). Nada mudou no saldo.`];
+  if (r.status === 409) return ['bad', 'Conflito', 'Mesma chave com conteúdo diferente: não é repetição, é erro do provedor. Nada mudou.'];
+  if (r.status === 400) return ['bad', 'Dados inválidos', (b.details || [b.message]).join('; ')];
+  if (r.status === 503) return ['warn', 'Falha temporária', 'Pode reenviar com a mesma chave.'];
+  if (r.status === 502) return ['bad', 'Cópia fora do ar', 'Essa instância não respondeu.'];
+  return ['bad', `HTTP ${r.status}`, JSON.stringify(b)];
+}
+
+function log(title, r, instance, extra = '') {
+  const [kind, what, detail] = r ? explain(r) : ['', title, extra];
+  const li = document.createElement('li');
+  li.className = kind;
+  li.innerHTML = `<div class="head"><span>${r ? title : 'Resultado'}</span><span>${instance ? `<span class="tag">cópia ${instance}</span> ` : ''}${r ? `HTTP ${r.status}` : ''}${r && r.ms ? ` · ${r.ms} ms` : ''}</span></div>
+    <div class="what">${what}</div><div>${[r ? detail : '', extra].filter(Boolean).join('<br>')}</div>`;
+  $('log').prepend(li);
+}
+
+async function api(instance, method, path, body, key) {
+  const res = await fetch(`/api/${instance}${path}`, {
+    method,
+    headers: { 'content-type': 'application/json', ...(key ? { 'idempotency-key': key } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  return { status: res.status, body: text ? JSON.parse(text) : null, ms: res.headers.get('x-elapsed-ms') };
+}
+
+const pick = () => { const t = Number($('target').value); return t || 1 + Math.floor(Math.random() * 3); };
+
+function operation(kind, amount, reference) {
+  const externalTransactionId = `${state.run}-${kind.toLowerCase()}-${++state.seq}`;
+  return {
+    body: {
+      providerId: 'provider-playground', externalTransactionId, playerId: state.playerId, walletId: state.walletId,
+      roundId: 'round-1', gameId: 'fortune-chimp', kind, money: { amount, currency: 'BRL' },
+      ...(reference ? { referenceExternalTransactionId: reference } : {}),
+    },
+    key: `provider-playground:${externalTransactionId}`,
+  };
+}
+
+function remember(op) {
+  state.sent.push({ id: op.body.externalTransactionId, label: `${op.body.kind} ${brl(op.body.money.amount)} (#${state.seq})` });
+  $('reference').innerHTML = '<option value="">(nenhuma)</option>' +
+    state.sent.slice().reverse().map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
+}
+
+async function submit(op, instance = pick(), title) {
+  const r = await api(instance, 'POST', '/wagering/transactions', op.body, op.key);
+  log(title || `${op.body.kind} de ${brl(op.body.money.amount)}`, r, instance);
+  return r;
+}
+
+function normalize(value) {
+  const v = value.trim().replace(',', '.');
+  return /^\d+$/.test(v) ? `${v}.00` : /^\d+\.\d$/.test(v) ? `${v}0` : v;
+}
+
+async function createWallet() {
+  state.playerId = crypto.randomUUID();
+  const r = await api(1, 'POST', '/wallets', { playerId: state.playerId, initialBalance: { amount: normalize($('initial').value), currency: 'BRL' } });
+  if (r.status !== 201) return log('Criar carteira', r, 1);
+  state.walletId = r.body.id; state.sent = []; state.last = null; $('repeat').disabled = true;
+  $('reference').innerHTML = '<option value="">(nenhuma)</option>';
+  $('wallet-empty').hidden = true; $('wallet-view').hidden = false; $('check').textContent = '';
+  log('Carteira criada', null, 1, `Saldo inicial ${brl(r.body.balance.amount)}, lançado no extrato como crédito de abertura.`);
+  refresh();
+}
+
+let lastBalance = null;
+async function refresh() {
+  if (!state.walletId) return;
+  const instance = 1 + Math.floor(Math.random() * 3);
+  const [w, l] = await Promise.all([api(instance, 'GET', `/wallets/${state.walletId}`), api(instance, 'GET', `/wallets/${state.walletId}/ledger?limit=100`)]);
+  if (w.status !== 200) return;
+  const amount = w.body.balance.amount;
+  $('balance').textContent = brl(amount);
+  if (lastBalance !== null && lastBalance !== amount) { $('balance').classList.add('flash'); setTimeout(() => $('balance').classList.remove('flash'), 400); }
+  lastBalance = amount;
+  $('wallet-meta').textContent = `Carteira ${state.walletId} · versão ${w.body.version}`;
+  const items = l.body.items || [];
+  $('ledger').innerHTML = items.length === 0 ? '<div class="empty">Nenhum lançamento.</div>' :
+    `<table><thead><tr><th>#</th><th>Movimento</th><th class="num">Valor</th><th class="num">Antes</th><th class="num">Depois</th></tr></thead><tbody>${
+      items.map((e, i) => `<tr><td>${i + 1}</td><td class="${e.direction === 'CREDIT' ? 'credit' : 'debit'}">${e.direction === 'CREDIT' ? 'Crédito' : 'Débito'}</td>
+        <td class="num">${e.direction === 'CREDIT' ? '+' : '−'} ${e.money.amount}</td><td class="num">${e.balanceBefore.amount}</td><td class="num">${e.balanceAfter.amount}</td></tr>`).join('')
+    }</tbody></table>`;
+}
+
+async function health() {
+  const results = await Promise.all([1, 2, 3].map((n) => fetch(`/api/${n}/health/ready`).then((r) => r.ok).catch(() => false)));
+  $('instances').innerHTML = results.map((up, i) => `<span class="dot ${up ? 'up' : 'down'}">cópia ${i + 1}</span>`).join('');
+}
+
+const needWallet = () => { if (!state.walletId) { log('Crie uma carteira primeiro', null, null, ''); return true; } return false; };
+
+const SCENARIOS = {
+  async race() {
+    const balance = Number(lastBalance || '0');
+    const amount = (Math.max(Math.round(balance * 60), 1) / 100).toFixed(2);
+    const a = operation('BET', amount), b = operation('BET', amount);
+    remember(a); remember(b);
+    const [ra, rb] = await Promise.all([submit(a, 2, 'Disputa: aposta A'), submit(b, 3, 'Disputa: aposta B')]);
+    const passed = [ra, rb].filter((r) => r.status === 200).length;
+    log('Resultado da disputa', null, null, `${passed} de 2 passou. O saldo nunca fica negativo, mesmo com as duas chegando juntas em cópias diferentes.`);
+  },
+  async storm() {
+    const op = operation('BET', '1.00'); remember(op);
+    const results = await Promise.all(Array.from({ length: 20 }, (_, i) => api(1 + (i % 3), 'POST', '/wagering/transactions', op.body, op.key)));
+    const fresh = results.filter((r) => r.status === 200 && !r.body.idempotentReplay).length;
+    const replays = results.filter((r) => r.body && r.body.idempotentReplay).length;
+    log('20 envios iguais em paralelo', results[0], null, `${fresh} aplicado, ${replays} reconhecidos como repetição. Veja o extrato: um débito só.`);
+  },
+  async early() {
+    const bet = operation('BET', '5.00');
+    const rollback = operation('ROLLBACK', '5.00', bet.body.externalTransactionId);
+    remember(rollback);
+    await submit(rollback, 1, 'ROLLBACK chegou primeiro');
+    await new Promise((r) => setTimeout(r, 800));
+    remember(bet);
+    await submit(bet, 2, 'BET original chegou depois');
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const t = await api(3, 'GET', `/providers/provider-playground/wagering/transactions/${rollback.body.externalTransactionId}`);
+      if (t.body && t.body.status === 'PROCESSED') return log('ROLLBACK resolvido sozinho', null, 3, 'O worker encontrou a aposta original e desfez. Saldo voltou ao que era.');
+    }
+    log('ROLLBACK ainda esperando', null, null, 'Ele continua tentando com intervalos cada vez maiores.');
+  },
+  async queue() {
+    const op = operation('BET', '2.00'); remember(op);
+    const message = { messageId: `${state.run}-msg-${state.seq}`, type: 'WagerTransactionRequested', occurredAt: new Date().toISOString(), data: { ...op.body, idempotencyKey: op.key } };
+    await fetch('/queue', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message, groupId: state.walletId, times: 2 }) });
+    log('Mensagem enviada 2 vezes para a fila', null, null, 'Alguma das cópias vai consumir. Acompanhe o extrato: deve aparecer um débito só de R$ 2,00.');
+  },
+  async conflict() {
+    const op = operation('BET', '3.00'); remember(op);
+    await submit(op, 1, 'BET de R$ 3,00');
+    await submit({ key: op.key, body: { ...op.body, money: { amount: '30.00', currency: 'BRL' } } }, 2, 'Mesma chave, agora com R$ 30,00');
+  },
+};
+
+$('create').onclick = createWallet;
+$('new-wallet').onclick = () => { state.walletId = null; lastBalance = null; $('wallet-empty').hidden = false; $('wallet-view').hidden = true; $('ledger').innerHTML = '<div class="empty">Crie uma carteira para começar.</div>'; };
+$('send').onclick = async () => {
+  if (needWallet()) return;
+  const op = operation($('kind').value, normalize($('amount').value), $('reference').value || undefined);
+  remember(op); state.last = op; $('repeat').disabled = false;
+  await submit(op); refresh();
+};
+$('repeat').onclick = async () => { if (state.last) { await submit(state.last, pick(), `Repetição: ${state.last.body.kind} de ${brl(state.last.body.money.amount)}`); refresh(); } };
+$('reconcile').onclick = async () => {
+  const r = await api(pick(), 'POST', `/wallets/${state.walletId}/reconciliation`);
+  const b = r.body;
+  $('check').innerHTML = b.consistent
+    ? `<span class="credit">✔ Saldo ${brl(b.storedBalance.amount)} = soma dos ${b.checkedEntries} lançamentos.</span>`
+    : `<span class="debit">✘ Divergência de ${brl(b.difference.amount)}.</span>`;
+};
+document.querySelectorAll('[data-scenario]').forEach((button) => {
+  button.onclick = async () => {
+    if (needWallet()) return;
+    button.disabled = true;
+    try { await SCENARIOS[button.dataset.scenario](); } finally { button.disabled = false; refresh(); }
+  };
+});
+
+health(); setInterval(health, 5000); setInterval(refresh, 1000);
+</script>
+</body>
+</html>

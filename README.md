@@ -38,6 +38,8 @@ docker compose exec app-1 bun scripts/demo.ts
 
 Passo a passo para quem nunca rodou o projeto: [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md).
 
+**Playground (opcional, fora da entrega):** uma tela para experimentar à mão, em http://localhost:8080. Sobe com `docker compose --profile playground up -d` e não altera o serviço; o código fica em `playground/`.
+
 ## Testes
 
 ```bash

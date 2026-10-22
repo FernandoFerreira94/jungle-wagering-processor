@@ -61,3 +61,19 @@ services:
   app-3:
     <<: *app
     ports: ["3003:3000"]
+
+  # Opcional, fora da entrega: tela para testar à mão. Sobe com --profile playground.
+  playground:
+    <<: *app
+    profiles: ["playground"]
+    command: ["bun", "playground/server.ts"]
+    environment:
+      <<: *app-env
+      PORT: "8080"
+    volumes:
+      - ./playground:/app/playground:ro
+    depends_on:
+      app-1: { condition: service_started }
+      app-2: { condition: service_started }
+      app-3: { condition: service_started }
+    ports: ["8080:8080"]
