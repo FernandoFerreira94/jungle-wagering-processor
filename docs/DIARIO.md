@@ -116,3 +116,11 @@ Como o leitor trata cada mensagem:
 - **Desligamento (SIGTERM):** para de pegar mensagens novas, termina as que estão em andamento e devolve na hora as que nem começaram.
 
 Mensagens da mesma carteira são tratadas em ordem; carteiras diferentes andam em paralelo. Mesmo assim, a ordem da fila é só uma ajuda: quem garante a correção é o banco.
+
+## Fase 11 — Enxergando o que acontece (logs e métricas)
+
+Um sistema financeiro precisa ser fácil de investigar quando algo dá errado.
+
+- **Logs em JSON**, uma linha por acontecimento, sempre com os identificadores que ligam os pontos: `correlationId`, `messageId`, `transactionId`, `walletId` e `providerId`. Valores de dinheiro, saldos e payloads completos **nunca** vão para o log. Isso é filtrado automaticamente, e um teste garante.
+- **Métricas** em `/metrics` (formato Prometheus): transações por tipo e resultado, repetições detectadas, duplicatas da fila, mensagens devolvidas e enviadas para a DLQ, conflitos de trava, avisos pendentes e há quanto tempo o mais antigo espera (o "atraso" da caixa de saída), tempo de processamento e divergências da conferência.
+- **Saúde** separada em "vivo" e "pronto", como já descrito na fase 6.
