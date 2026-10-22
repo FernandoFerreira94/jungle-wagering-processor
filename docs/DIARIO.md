@@ -140,3 +140,13 @@ Aqui testamos o sistema do jeito que ele vai sofrer na vida real: **três cópia
 - **Derrubada brutal (kill -9) no meio do trabalho:** com 15 carteiras e 210 apostas em andamento, matamos duas cópias e subimos outras duas. No final, todas as apostas existiam uma vez só, todo saldo batia com o extrato, a conferência deu "consistente" e todos os avisos da caixa de saída foram entregues.
 
 Rodamos esses testes várias vezes seguidas para garantir que não passaram "por sorte".
+
+## Fase 13 — Teste de carga
+
+Colocamos o sistema sob pressão por 30 segundos: 48 clientes mandando apostas sem parar para as 3 cópias, com 20% delas mirando uma única carteira "disputada" e 10% sendo reenvios repetidos.
+
+- Cerca de **225 apostas por segundo**, **nenhum erro**, e no final todo saldo batia com o extrato.
+- A carteira disputada deixa as respostas mais lentas na ponta (algumas passam de 1 segundo), porque as apostas nela entram em fila, uma de cada vez. É o preço de nunca errar o saldo.
+- O teste achou um gargalo: o carteiro dos avisos (fase 9) estava lento e os avisos chegavam a esperar 28 segundos. Ajustamos para ele trabalhar em paralelo e não dormir quando há serviço. Caiu para cerca de 10 segundos. Nenhum aviso se perde; eles só chegam um pouco depois.
+
+Os detalhes e números estão em `docs/LOAD_TEST.md`.
