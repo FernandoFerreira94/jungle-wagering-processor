@@ -171,8 +171,8 @@ function parseEnvelope(body: string | undefined): Envelope {
 }
 
 function classify(error: unknown): Outcome {
-  if (error instanceof NotFoundError) return 'ack';
   if (
+    error instanceof NotFoundError ||
     error instanceof IdempotencyConflictError ||
     error instanceof InboxPayloadConflictError ||
     error instanceof ValidationError ||
@@ -188,5 +188,7 @@ function classify(error: unknown): Outcome {
 function reasonOf(error: unknown): string {
   if (error instanceof IdempotencyConflictError) return 'idempotency_conflict';
   if (error instanceof InboxPayloadConflictError) return 'message_id_conflict';
+  // Wallet inexistente: não há onde aplicar nem registrar a operação; fica na DLQ para análise.
+  if (error instanceof NotFoundError) return 'wallet_not_found';
   return 'invalid_message';
 }

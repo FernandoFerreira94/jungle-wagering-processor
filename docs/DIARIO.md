@@ -109,9 +109,9 @@ Os provedores também podem mandar apostas pela fila `wager-transactions.fifo`. 
 
 Como o leitor trata cada mensagem:
 
-- **Deu certo, ou foi recusada por regra de negócio** (sem saldo, carteira inexistente): confirma o recebimento ("ack") e a mensagem sai da fila. O ack só acontece **depois** que tudo foi salvo.
+- **Deu certo, ou foi recusada por regra de negócio** (sem saldo, por exemplo): confirma o recebimento ("ack") e a mensagem sai da fila. O ack só acontece **depois** que tudo foi salvo.
 - **Mensagem repetida:** a caixa de entrada (fase 4) reconhece pelo `messageId` e não repete o débito.
-- **Mesmo `messageId` com conteúdo diferente**, JSON quebrado ou tipo desconhecido: é erro permanente. Vai direto para a **fila de problemas (DLQ)**, para alguém analisar.
+- **Mesmo `messageId` com conteúdo diferente**, JSON quebrado, tipo desconhecido ou carteira inexistente: é erro permanente. Vai direto para a **fila de problemas (DLQ)**, para alguém analisar.
 - **Falha temporária** (banco ocupado ou fora do ar): devolve a mensagem para a fila e espera um pouco mais a cada tentativa. Depois de 5 tentativas, a própria fila manda a mensagem para a DLQ.
 - **Desligamento (SIGTERM):** para de pegar mensagens novas, termina as que estão em andamento e devolve na hora as que nem começaram.
 

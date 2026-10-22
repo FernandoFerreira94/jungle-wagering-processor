@@ -82,6 +82,14 @@ describe('SQS consumer', () => {
     expect(dlq.map((m) => m.messageId)).toEqual([first.messageId]);
   });
 
+  test('a message for a wallet that does not exist goes to the DLQ', async () => {
+    const message = wagerMessage(betData(crypto.randomUUID(), crypto.randomUUID()));
+    await sendWager(sqs, message);
+    await consumeAll();
+    const dlq = await drainQueue(sqs, queues.dlq);
+    expect(dlq.map((m) => m.messageId)).toEqual([message.messageId]);
+  });
+
   test('malformed messages go straight to the DLQ', async () => {
     await sendWager(sqs, '{not json');
     await sendWager(sqs, JSON.stringify({ messageId: 'm1', type: 'Unknown', data: {} }));
@@ -121,7 +129,6 @@ describe('SQS consumer', () => {
   test('a business rejection is acknowledged (not retried, not in the DLQ)', async () => {
     const { walletId, playerId } = await createWallet(t.url, '5.00');
     await sendWager(sqs, wagerMessage(betData(walletId, playerId, '10.00')));
-    await sendWager(sqs, wagerMessage(betData('0192f291-27dd-7d3f-8071-5f8685deef37', playerId, '1.00')));
     await consumeAll();
     const [row] = await sql<{ status: string; failure_code: string }>(
       orm,
