@@ -5,6 +5,7 @@ import { JsonLogger } from '../shared/json-logger';
 import { Metrics } from '../shared/metrics';
 import { PollingLoop } from '../shared/polling-loop';
 import { APP_CONFIG } from '../tokens';
+import type { OutboxMessage } from './outbox-message';
 import { OutboxRepository } from './outbox.repository';
 import { SqsGateway } from './sqs';
 
@@ -44,20 +45,13 @@ export class OutboxPublisher implements OnApplicationBootstrap, BeforeApplicatio
   async runOnce(now = new Date()): Promise<number> {
     const published = await this.db.transaction(async (em) => {
       const batch = await this.outbox.claimDue(em, now, BATCH_SIZE);
+      // Grupos (aggregateId) em paralelo; dentro do grupo, em ordem, para preservar a ordem FIFO.
+      const groups = new Map<string, OutboxMessage[]>();
+      for (const message of batch) groups.set(message.aggregateId, [...(groups.get(message.aggregateId) ?? []), message]);
+      await Promise.all([...groups.values()].map((messages) => this.publishInOrder(messages)));
       let count = 0;
       for (const message of batch) {
-        try {
-          await this.sqs.send(this.config.queues.events, JSON.stringify(message.payload), {
-            groupId: message.aggregateId,
-            deduplicationId: message.id,
-          });
-          message.markPublished(new Date());
-          count += 1;
-        } catch (error) {
-          message.scheduleRetry(new Date());
-          this.metrics.outboxFailures.inc();
-          this.logger.warn('outbox publish failed', { eventId: message.id, eventType: message.eventType, attempts: message.attempts, error });
-        }
+        if (message.publishedAt) count += 1;
         await this.outbox.save(em, message);
       }
       return count;
@@ -65,6 +59,24 @@ export class OutboxPublisher implements OnApplicationBootstrap, BeforeApplicatio
     this.metrics.outboxPublished.inc(published);
     await this.refreshGauges();
     return published;
+  }
+
+  private async publishInOrder(messages: OutboxMessage[]): Promise<void> {
+    for (const [index, message] of messages.entries()) {
+      try {
+        await this.sqs.send(this.config.queues.events, JSON.stringify(message.payload), {
+          groupId: message.aggregateId,
+          deduplicationId: message.id,
+        });
+        message.markPublished(new Date());
+      } catch (error) {
+        // O restante do grupo espera junto, para não ser publicado antes deste.
+        for (const rest of messages.slice(index)) rest.scheduleRetry(new Date());
+        this.metrics.outboxFailures.inc();
+        this.logger.warn('outbox publish failed', { eventId: message.id, eventType: message.eventType, attempts: message.attempts, error });
+        return;
+      }
+    }
   }
 
   private async refreshGauges(): Promise<void> {

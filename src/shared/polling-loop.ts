@@ -1,6 +1,9 @@
 import type { JsonLogger } from './json-logger';
 
-/** Executa `tick` em intervalo fixo, sem sobreposição, e para de forma limpa (espera o tick em andamento). */
+/**
+ * Executa `tick` em intervalo fixo, sem sobreposição, e para de forma limpa (espera o tick em andamento).
+ * Se o tick devolver um número > 0 (havia trabalho), roda de novo na hora em vez de esperar o intervalo.
+ */
 export class PollingLoop {
   private timer?: ReturnType<typeof setTimeout>;
   private current?: Promise<unknown>;
@@ -27,11 +30,15 @@ export class PollingLoop {
 
   private schedule(delay: number): void {
     this.timer = setTimeout(() => {
+      let busy = false;
       this.current = this.tick()
+        .then((result) => {
+          busy = typeof result === 'number' && result > 0;
+        })
         .catch((error) => this.logger.error(`${this.name} tick failed`, { error }))
         .finally(() => {
           this.current = undefined;
-          if (!this.stopped) this.schedule(this.intervalMs);
+          if (!this.stopped) this.schedule(busy ? 0 : this.intervalMs);
         });
     }, delay);
   }
