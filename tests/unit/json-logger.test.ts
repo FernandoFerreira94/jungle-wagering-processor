@@ -23,6 +23,17 @@ describe('JsonLogger', () => {
     for (const key of ['amount', 'money', 'balance', 'payload', 'authorization']) expect(entry).not.toHaveProperty(key);
   });
 
+  test('drops financial data inside nested objects and lists too', () => {
+    const lines: string[] = [];
+    new JsonLogger((line) => lines.push(line)).info('nested', {
+      request: { walletId: 'w-1', money: { amount: '25.00', currency: 'BRL' } },
+      items: [{ id: 'e-1', balanceAfter: '10.00' }],
+    });
+    const entry = JSON.parse(lines[0] as string);
+    expect(entry.request).toEqual({ walletId: 'w-1' });
+    expect(entry.items).toEqual([{ id: 'e-1' }]);
+  });
+
   test('serializes errors without stack traces or payloads', () => {
     const lines: string[] = [];
     new JsonLogger((line) => lines.push(line)).error('failed', { error: new Error('boom') });

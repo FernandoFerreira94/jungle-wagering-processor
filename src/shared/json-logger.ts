@@ -50,7 +50,17 @@ function sanitize(fields: LogFields): LogFields {
   const clean: LogFields = {};
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined || REDACTED_KEYS.has(key)) continue;
-    clean[key] = value instanceof Error ? { name: value.name, message: value.message } : value;
+    clean[key] = sanitizeValue(value);
   }
   return clean;
+}
+
+/** Remove as chaves sensíveis também em objetos e listas aninhados. */
+function sanitizeValue(value: unknown): unknown {
+  if (value instanceof Error) return { name: value.name, message: value.message };
+  if (Array.isArray(value)) return value.map(sanitizeValue);
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return sanitize(value as LogFields);
+  }
+  return value;
 }
