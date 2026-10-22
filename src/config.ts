@@ -7,6 +7,8 @@ export interface AppConfig {
   consumerName: string;
   maxReceiveCount: number;
   lockTimeoutMs: number;
+  /** Base do backoff (s) ao devolver uma mensagem à fila: base · 2^(tentativa − 1), teto de 300 s. */
+  sqsRetryBaseSeconds: number;
   pendingReference: { maxAttempts: number; baseDelayMs: number; maxDelayMs: number };
 }
 
@@ -35,6 +37,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     consumerName: env.CONSUMER_NAME ?? 'wager-transactions-consumer',
     maxReceiveCount: int(env.SQS_MAX_RECEIVE_COUNT, 5),
     lockTimeoutMs: int(env.LOCK_TIMEOUT_MS, 5000),
+    sqsRetryBaseSeconds: int(env.SQS_RETRY_BASE_SECONDS, 2),
     pendingReference: {
       maxAttempts: int(env.PENDING_REFERENCE_MAX_ATTEMPTS, 10),
       baseDelayMs: int(env.PENDING_REFERENCE_BASE_DELAY_MS, 1000),

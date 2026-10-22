@@ -9,6 +9,7 @@ import { HealthController } from './health/health.controller';
 import { OutboxPublisher } from './messaging/outbox-publisher.worker';
 import { OutboxRepository } from './messaging/outbox.repository';
 import { SqsGateway } from './messaging/sqs';
+import { WagerConsumer } from './messaging/wager-consumer';
 import { MetricsController } from './metrics/metrics.controller';
 import { JsonLogger } from './shared/json-logger';
 import { Metrics } from './shared/metrics';
@@ -63,6 +64,7 @@ export class AppModule {
         ProcessWagerUseCase,
         PendingReferenceWorker,
         OutboxPublisher,
+        WagerConsumer,
       ],
     };
   }

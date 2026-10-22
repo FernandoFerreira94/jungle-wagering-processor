@@ -102,3 +102,17 @@ O carteiro lê os avisos anotados na caixa de saída e os entrega na fila de eve
 - **Vários carteiros ao mesmo tempo não brigam.** Cada um pega um lote diferente (os outros pulam o que já está sendo entregue). Testamos com três carteiros juntos: tudo foi entregue.
 - **Se ele cair no meio da entrega**, o lote volta para a pilha e é entregue de novo, **com o mesmo identificador**. Quem recebe reconhece e ignora a repetição. Entregar duas vezes é seguro; perder, nunca.
 - **Se a fila estiver fora do ar**, o aviso continua pendente e o carteiro espera cada vez mais antes de tentar de novo.
+
+## Fase 10 — Lendo a fila de apostas (SQS)
+
+Os provedores também podem mandar apostas pela fila `wager-transactions.fifo`. O leitor da fila usa **exatamente o mesmo caminho** do HTTP (fase 7), então as regras valem igual nos dois canais. Se a mesma aposta chegar uma vez pelo HTTP e outra pela fila, ela vale uma vez só.
+
+Como o leitor trata cada mensagem:
+
+- **Deu certo, ou foi recusada por regra de negócio** (sem saldo, carteira inexistente): confirma o recebimento ("ack") e a mensagem sai da fila. O ack só acontece **depois** que tudo foi salvo.
+- **Mensagem repetida:** a caixa de entrada (fase 4) reconhece pelo `messageId` e não repete o débito.
+- **Mesmo `messageId` com conteúdo diferente**, JSON quebrado ou tipo desconhecido: é erro permanente. Vai direto para a **fila de problemas (DLQ)**, para alguém analisar.
+- **Falha temporária** (banco ocupado ou fora do ar): devolve a mensagem para a fila e espera um pouco mais a cada tentativa. Depois de 5 tentativas, a própria fila manda a mensagem para a DLQ.
+- **Desligamento (SIGTERM):** para de pegar mensagens novas, termina as que estão em andamento e devolve na hora as que nem começaram.
+
+Mensagens da mesma carteira são tratadas em ordem; carteiras diferentes andam em paralelo. Mesmo assim, a ordem da fila é só uma ajuda: quem garante a correção é o banco.
