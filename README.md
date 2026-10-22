@@ -30,6 +30,14 @@ O Compose sobe:
 curl -s localhost:3001/health/ready
 ```
 
+**Demonstração guiada** (aposta, repetição, disputa de saldo, cancelamento fora de ordem, fila duplicada, extrato), rodando dentro do container, sem instalar nada:
+
+```bash
+docker compose exec app-1 bun scripts/demo.ts
+```
+
+Passo a passo para quem nunca rodou o projeto: [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md).
+
 ## Testes
 
 ```bash

@@ -12,7 +12,8 @@
     "test:integration": "bun test --timeout 60000 tests/integration",
     "test:concurrency": "bun test --timeout 180000 tests/concurrency",
     "test": "bun run test:unit && bun run test:integration && bun run test:concurrency",
-    "test:load": "bun load/load-test.ts"
+    "test:load": "bun load/load-test.ts",
+    "demo": "docker compose exec app-1 bun scripts/demo.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1156.0",
