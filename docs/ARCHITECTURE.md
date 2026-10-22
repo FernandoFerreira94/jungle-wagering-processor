@@ -239,7 +239,7 @@ O mesmo mapeamento vale em todos os endpoints (`HttpExceptionFilter`). Cada situ
 | Integração (`tests/integration`) | constraints e triggers, atomicidade, API, inbox e redelivery, publishers concorrentes, retry e DLQ, pendências, métricas | Postgres e LocalStack reais |
 | Concorrência (`tests/concurrency`) | os 8 cenários de §13 com **3 processos reais**, inclusive `SIGKILL` no meio da carga | Postgres e LocalStack reais |
 
-Todo teste de concorrência termina conferindo `wallet.balance == créditos − débitos == último balance_after` e que a cadeia do ledger não tem buracos. A suíte de concorrência passou 3 vezes seguidas sem falha.
+Todo teste de concorrência termina conferindo `wallet.balance == créditos − débitos == último balance_after` e que a cadeia do ledger não tem buracos. A suíte de concorrência passou 5 vezes seguidas sem falha.
 
 ## 16. Limitações conhecidas e próximos passos
 

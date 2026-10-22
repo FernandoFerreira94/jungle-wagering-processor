@@ -307,3 +307,13 @@ Algoritmo (uma transação, `SET LOCAL lock_timeout = '5s'`):
 - [ ] **Step 3:** `EVALUATOR_GUIDE.md`: critério → arquivo → teste; checklist das 8 eliminatórias com o teste de cada uma; roteiro de 10 minutos.
 - [ ] **Step 4:** Clone limpo → `docker compose up -d --build` → `bun install` → `bun run test` → tudo verde; anotar a saída no guia.
 - [ ] **Step 5:** Diário (fase final) + commit `docs: architecture, evaluator guide and diary`.
+
+---
+
+## Desvios em relação ao plano (registrados na execução)
+
+- **Task 8:** o backoff total das pendências ficou em cerca de 4 minutos (10 tentativas, `min(1 s × 2^n, 60 s)`), não 8,5. Um erro permanente ao reprocessar marca `FAILED` na hora, não depois de 3 tentativas: repetir um erro não transitório só atrasa o diagnóstico.
+- **Task 10:** mensagem SQS para wallet inexistente vai para a DLQ (motivo `wallet_not_found`) em vez de ack silencioso. Não há onde aplicar nem registrar a operação, e alguém precisa olhar.
+- **Task 11:** logs e métricas nasceram junto com a Task 6 (o use case já precisava deles); a Task 11 completou e testou.
+- **Task 13:** o teste de carga revelou atraso na outbox. O publisher passou a publicar grupos em paralelo e a não dormir quando há trabalho.
+- **Task 14:** a imagem Docker passou para `oven/bun:1.4-alpine`, porque o `bun.lock` gerado pelo Bun 1.4 não é lido pelo 1.3.

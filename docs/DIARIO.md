@@ -150,3 +150,34 @@ Colocamos o sistema sob pressão por 30 segundos: 48 clientes mandando apostas s
 - O teste achou um gargalo: o carteiro dos avisos (fase 9) estava lento e os avisos chegavam a esperar 28 segundos. Ajustamos para ele trabalhar em paralelo e não dormir quando há serviço. Caiu para cerca de 10 segundos. Nenhum aviso se perde; eles só chegam um pouco depois.
 
 Os detalhes e números estão em `docs/LOAD_TEST.md`.
+
+## Fase 14 — Documentação e conferência final
+
+Escrevemos os documentos que o avaliador vai ler:
+
+- **`README.md`:** como subir, como testar, exemplos prontos para copiar e colar.
+- **`docs/ARCHITECTURE.md`:** cada decisão, o motivo e o custo dela.
+- **`docs/EVALUATOR_GUIDE.md`:** para cada critério da nota, onde está o código e qual teste prova. Inclui as 8 falhas eliminatórias, uma por uma.
+- **`docs/LOAD_TEST.md`:** o teste de carga.
+
+Depois conferimos tudo do zero: baixamos uma cópia limpa do projeto, subimos com Docker as 3 cópias do sistema e rodamos todos os testes.
+
+A conferência achou dois problemas, e os dois foram corrigidos:
+
+1. **A imagem Docker usava uma versão do Bun mais antiga** que a do projeto e não conseguia instalar as dependências. Atualizamos.
+2. **Um teste de queda às vezes falhava.** A causa estava no próprio teste, não no sistema: quando um teste quebrava no meio, ele deixava cópias do sistema "fantasmas" rodando, e elas roubavam as mensagens do teste seguinte. Agora toda cópia iniciada pelos testes é desligada no final, aconteça o que acontecer, e cada uma pega uma porta livre escolhida pelo sistema operacional.
+
+## Resumo das decisões, para a apresentação
+
+1. **O banco de dados é o juiz.** Fila, ordem de chegada e deduplicação do SQS ajudam, mas quem garante que não há erro é o PostgreSQL, com regras gravadas no próprio banco.
+2. **Dinheiro nunca é número com vírgula flutuante.** Usamos centavos inteiros no código, texto `"25.00"` na API e `NUMERIC` no banco. Nada é arredondado.
+3. **Uma trava por carteira, não uma trava geral.** Apostas na mesma carteira entram em fila; carteiras diferentes andam em paralelo. Escolhemos trava "pessimista" porque, numa carteira disputada, ela responde certo de primeira, sem tentativas repetidas.
+4. **Tudo ou nada.** Aposta, saldo, extrato, registro da mensagem e aviso de saída são salvos juntos, numa única transação.
+5. **Repetição não cobra duas vezes.** Cada operação tem uma chave única guardada no banco. Repetir devolve a resposta original, até com o saldo daquele momento. Mesma chave com conteúdo diferente é conflito.
+6. **Extrato que não se apaga.** O banco proíbe alterar ou apagar lançamentos, e confere no fechamento de cada transação se o saldo bate com o extrato.
+7. **Avisos só depois de salvar** (outbox), entregues "pelo menos uma vez" e com identificador fixo, para quem recebe ignorar repetições.
+8. **Mensagens problemáticas vão para a DLQ**, separadas em temporárias (tenta de novo, cada vez mais devagar) e permanentes (direto para análise).
+9. **Cancelamento que chega antes da aposta espera** até cerca de 4 minutos e depois é recusado com um código claro.
+10. **Um cancelamento por aposta, no total.** REFUND e ROLLBACK da mesma aposta devolveriam o dinheiro duas vezes, então só o primeiro vale.
+11. **Autenticação ficou desenhada, não implementada**, porque não vale pontos. O ponto de encaixe está no código, e o desenho (Keycloak com credenciais por provedor) está documentado.
+12. **Testes sem dublês:** banco e fila reais, 3 cópias do sistema ao mesmo tempo, quedas forçadas no meio do trabalho.

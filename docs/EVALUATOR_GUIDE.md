@@ -92,7 +92,7 @@ Estratégia de lock e o motivo da escolha: [`ARCHITECTURE.md` §5](ARCHITECTURE.
 ```
 bun run test:unit          98 pass
 bun run test:integration   57 pass
-bun run test:concurrency    8 pass  (3 execuções seguidas sem falha)
+bun run test:concurrency    8 pass  (5 execuções seguidas sem falha)
 ```
 
 ### Observabilidade (5)

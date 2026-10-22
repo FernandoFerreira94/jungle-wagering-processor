@@ -8,22 +8,42 @@ export interface Instance {
   kill(signal?: NodeJS.Signals): Promise<number | null>;
 }
 
-let nextPort = 20_000 + Math.floor(Math.random() * 20_000);
+/** Todo processo iniciado pelos testes; mortos na saída, mesmo se um teste falhar no meio. */
+const spawned = new Set<Subprocess>();
+process.on('exit', () => {
+  for (const proc of spawned) if (proc.exitCode === null) proc.kill('SIGKILL');
+});
 
 /** Sobe N processos reais do serviço (`bun src/main.ts`) apontando para o banco e as filas de teste. */
 export async function startInstances(count: number, env: Record<string, string> = {}): Promise<Instance[]> {
   const instances = Array.from({ length: count }, () => spawnInstance(env));
-  await Promise.all(instances.map((instance) => waitReady(instance)));
+  try {
+    await Promise.all(instances.map((instance) => waitReady(instance)));
+  } catch (error) {
+    // Uma instância que não subiu não pode deixar as outras órfãs consumindo as filas de teste.
+    await Promise.all(instances.map((instance) => instance.kill()));
+    throw error;
+  }
   return instances;
 }
 
+/** Porta livre escolhida pelo sistema operacional. */
+function freePort(): number {
+  const probe = Bun.serve({ port: 0, fetch: () => new Response() });
+  const port = probe.port as number;
+  probe.stop(true);
+  return port;
+}
+
 function spawnInstance(env: Record<string, string>): Instance {
-  const port = nextPort++;
+  const port = freePort();
   const proc = Bun.spawn(['bun', 'src/main.ts'], {
     env: { ...process.env, PORT: String(port), LOG_LEVEL: process.env.TEST_LOG ? 'info' : 'error', ...env },
     stdout: process.env.TEST_LOG ? 'inherit' : 'ignore',
     stderr: 'inherit',
   });
+  spawned.add(proc);
+  void proc.exited.then(() => spawned.delete(proc));
   return {
     url: `http://127.0.0.1:${port}`,
     proc,
