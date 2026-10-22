@@ -3,14 +3,17 @@ import { MikroORM } from '@mikro-orm/postgresql';
 import { TransientFailureError } from '../shared/errors';
 import { isTransient } from './pg-errors';
 
-/** Ponto único para abrir transações: lock_timeout curto e falhas transitórias com tipo próprio. */
+/** Ponto único para abrir transações: lock_timeout curto (ms) e falhas transitórias com tipo próprio. */
 export class Database {
-  constructor(readonly orm: MikroORM) {}
+  constructor(
+    readonly orm: MikroORM,
+    private readonly lockTimeoutMs = 5000,
+  ) {}
 
   async transaction<T>(work: (em: EntityManager) => Promise<T>): Promise<T> {
     try {
       return await this.orm.em.fork().transactional(async (em) => {
-        await em.execute(`SET LOCAL lock_timeout = '5s'`);
+        await em.execute(`SET LOCAL lock_timeout = ${Math.trunc(this.lockTimeoutMs)}`);
         return work(em);
       });
     } catch (error) {

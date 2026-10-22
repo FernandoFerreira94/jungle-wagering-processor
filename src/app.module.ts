@@ -12,6 +12,9 @@ import { MetricsController } from './metrics/metrics.controller';
 import { JsonLogger } from './shared/json-logger';
 import { Metrics } from './shared/metrics';
 import { APP_CONFIG, PROVIDER_IDENTITY } from './tokens';
+import { InboxRepository } from './messaging/inbox.repository';
+import { ProcessWagerUseCase } from './wagering/process-wager.use-case';
+import { WageringController } from './wagering/wagering.controller';
 import { WagerTransactionRepository } from './wagering/wager-transaction.repository';
 import { WalletController } from './wallet/wallet.controller';
 import { WalletRepository } from './wallet/wallet.repository';
@@ -35,13 +38,13 @@ export class AppModule {
   static forRoot(config: AppConfig, logger: JsonLogger): DynamicModule {
     return {
       module: AppModule,
-      controllers: [WalletController, HealthController, MetricsController],
+      controllers: [WalletController, WageringController, HealthController, MetricsController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         { provide: JsonLogger, useValue: logger },
         { provide: Metrics, useValue: new Metrics() },
         { provide: MikroORM, useFactory: () => MikroORM.init(ormConfig(config.databaseUrl)) },
-        { provide: Database, useFactory: (orm: MikroORM) => new Database(orm), inject: [MikroORM] },
+        { provide: Database, useFactory: (orm: MikroORM) => new Database(orm, config.lockTimeoutMs), inject: [MikroORM] },
         { provide: SqsGateway, useValue: new SqsGateway(config.aws) },
         { provide: PROVIDER_IDENTITY, useClass: NoopProviderIdentity },
         {
@@ -53,7 +56,9 @@ export class AppModule {
         WalletRepository,
         WagerTransactionRepository,
         OutboxRepository,
+        InboxRepository,
         WalletService,
+        ProcessWagerUseCase,
       ],
     };
   }

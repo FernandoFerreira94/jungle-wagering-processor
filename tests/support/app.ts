@@ -50,3 +50,37 @@ export async function createWallet(base: string, amount = '1000.00', currency = 
   if (res.status !== 201) throw new Error(`wallet creation failed: ${res.status} ${JSON.stringify(res.body)}`);
   return { walletId: res.body.id as string, playerId };
 }
+
+export interface WagerInput {
+  walletId: string;
+  playerId: string;
+  kind: string;
+  amount?: string;
+  currency?: string;
+  externalTransactionId?: string;
+  reference?: string;
+  roundId?: string;
+  providerId?: string;
+  idempotencyKey?: string;
+}
+
+export function wagerBody(input: WagerInput) {
+  return {
+    providerId: input.providerId ?? 'provider-a',
+    externalTransactionId: input.externalTransactionId ?? `tx-${newId()}`,
+    playerId: input.playerId,
+    walletId: input.walletId,
+    roundId: input.roundId ?? 'round-1',
+    gameId: 'fortune-chimp',
+    kind: input.kind,
+    money: { amount: input.amount ?? '10.00', currency: input.currency ?? 'BRL' },
+    ...(input.reference ? { referenceExternalTransactionId: input.reference } : {}),
+  };
+}
+
+export async function submitWager(base: string, input: WagerInput) {
+  const body = wagerBody(input);
+  const key = input.idempotencyKey ?? `${body.providerId}:${body.externalTransactionId}`;
+  const res = await api(base, 'POST', '/wagering/transactions', body, { 'idempotency-key': key });
+  return { ...res, sent: body, key };
+}

@@ -68,3 +68,17 @@ Agora o sistema conversa com o mundo por HTTP:
 Os erros seguem um padrão único em todos os endpoints: 400 para pedido malformado, 404 para não encontrado, 409 para conflito, 422 para regra de negócio, 202 para "aceito, esperando" e 503 para "falha temporária, tente de novo". Assim o provedor sabe o que fazer só pelo número.
 
 **Sobre login:** o desafio diz que autenticação não vale pontos e que, se feita, deve usar um provedor de identidade externo (como o Keycloak). Decidimos **não implementar agora** e deixar uma "tomada" pronta no código (`ProviderAuthGuard` + `ProviderIdentityPort`), com o desenho completo documentado. Isso mantém o foco no que vale nota.
+
+## Fase 7 — O coração: processar cada aposta
+
+Esta é a peça principal. Toda operação (aposta, ganho, perda, reembolso, cancelamento) passa pelo **mesmo caminho**, venha ela pelo HTTP ou pela fila. O caminho é sempre este, dentro de um único "pacote" no banco:
+
+1. **Tranca a carteira.** Enquanto uma operação mexe numa carteira, outra operação da mesma carteira espera a vez (carteiras diferentes andam em paralelo, sem esperar umas pelas outras). Se a espera passar de 5 segundos, o sistema responde "tente de novo" (503) em vez de travar.
+2. **Confere se já viu esse pedido.** Mesma chave e mesmo conteúdo: devolve a resposta original, **inclusive o saldo daquele momento**, e marca `idempotentReplay: true`. Mesma chave com conteúdo diferente: conflito (409), nada acontece.
+3. **Aplica a regra** da fase 3 e grava, juntos, a transação, o novo saldo, a linha do extrato e os avisos na caixa de saída.
+
+Se qualquer passo falhar no meio, **nada** é salvo. Testamos isso simulando uma pane depois de mexer no saldo e antes de gravar o aviso: o saldo voltou ao que era e o mesmo pedido pôde ser reenviado normalmente.
+
+Se duas cópias do sistema receberem exatamente o mesmo pedido no mesmo instante, a segunda esbarra na regra de unicidade do banco, relê o que a primeira gravou e responde como repetição. Sem débito em dobro.
+
+As respostas seguem o resultado: 200 processada, 422 rejeitada (com o código do motivo), 202 aguardando a aposta original, 409 conflito de chave, 503 falha temporária.

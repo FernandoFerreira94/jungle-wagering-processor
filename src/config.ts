@@ -6,6 +6,7 @@ export interface AppConfig {
   roles: { http: boolean; consumer: boolean; outbox: boolean; pendingWorker: boolean };
   consumerName: string;
   maxReceiveCount: number;
+  lockTimeoutMs: number;
   pendingReference: { maxAttempts: number; baseDelayMs: number; maxDelayMs: number };
 }
 
@@ -33,6 +34,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     },
     consumerName: env.CONSUMER_NAME ?? 'wager-transactions-consumer',
     maxReceiveCount: int(env.SQS_MAX_RECEIVE_COUNT, 5),
+    lockTimeoutMs: int(env.LOCK_TIMEOUT_MS, 5000),
     pendingReference: {
       maxAttempts: int(env.PENDING_REFERENCE_MAX_ATTEMPTS, 10),
       baseDelayMs: int(env.PENDING_REFERENCE_BASE_DELAY_MS, 1000),
