@@ -19,3 +19,16 @@ Dinheiro nunca é guardado como número "quebrado" (aquele tipo de número do co
 O sistema é chato de propósito com o que aceita: `"25.001"`, `"1e3"`, `"-1.00"`, texto vazio ou com espaço são recusados. Nada é arredondado escondido. Também não dá para somar real com dólar: isso dá erro na hora.
 
 Criamos ainda uma "impressão digital" de cada pedido. Os campos importantes são colocados sempre na mesma ordem e passam por um resumo matemático (SHA-256). Se o mesmo pedido chegar de novo, a impressão digital é igual. Se alguém reaproveitar o mesmo identificador com dados diferentes, a impressão digital denuncia.
+
+## Fase 3 — As regras do jogo
+
+Aqui ficam as regras de negócio puras, sem banco e sem framework, como uma "lei" que pode ser testada sozinha.
+
+- **Carteira (wallet):** guarda o saldo e um número de versão que sobe a cada mudança. Ela nunca deixa o saldo ficar negativo e, toda vez que o saldo muda, devolve junto o lançamento do extrato. Não existe mudar saldo sem extrato.
+- **Lançamento do extrato (ledger):** nasce pronto e nunca muda. Ele confere a própria conta: saldo antes ± valor = saldo depois. Se a conta não fecha, ele nem é criado.
+- **Transação:** é cada pedido do provedor. Ela começa "pendente" e termina em um de três estados finais (processada, rejeitada ou falha). Chegando num estado final, não muda mais.
+- **O juiz das regras:** uma função que olha a transação, a carteira e a aposta original (quando é um estorno) e decide: aplicar, só registrar (caso da perda), rejeitar com um motivo, ou esperar a aposta original chegar.
+
+Cada rejeição tem um **código de motivo** fixo (por exemplo `INSUFFICIENT_FUNDS` para aposta sem saldo e `REVERSAL_INSUFFICIENT_FUNDS` para um estorno que deixaria o saldo negativo). Assim o provedor sabe se vale tentar de novo.
+
+Uma decisão nossa: **cada aposta só pode ser estornada uma vez**, seja por reembolso (REFUND) ou por cancelamento (ROLLBACK). O enunciado só proíbe repetir o mesmo tipo, mas permitir os dois daria crédito em dobro, o que ele mesmo proíbe.
