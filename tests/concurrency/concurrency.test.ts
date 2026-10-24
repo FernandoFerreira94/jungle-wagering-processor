@@ -30,9 +30,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stopAll(instances ?? []);
-  await assertLedgerInvariant(orm, touched);
-  await orm.close();
-  sqs.destroy();
+  try {
+    if (orm) await assertLedgerInvariant(orm, touched);
+  } finally {
+    await orm?.close();
+    sqs?.destroy();
+  }
 });
 
 async function wallet(amount: string) {

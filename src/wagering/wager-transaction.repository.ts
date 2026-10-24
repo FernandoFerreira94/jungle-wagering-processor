@@ -1,7 +1,7 @@
 import { LockMode, type EntityManager } from '@mikro-orm/postgresql';
-import { WagerTransactionRecord } from '../database/entities';
+import { WagerTransactionRecord, WalletRecord } from '../database/entities';
 import { Money } from '../shared/money';
-import type { FailureCode } from './failure-code';
+import { FailureCode } from './failure-code';
 import {
   WagerTransaction,
   WagerTransactionKind,
@@ -11,22 +11,22 @@ import {
 export class WagerTransactionRepository {
   async findById(em: EntityManager, id: string): Promise<WagerTransaction | null> {
     const record = await em.findOne(WagerTransactionRecord, { id }, { refresh: true });
-    return record ? toDomain(record) : null;
+    return record ? rehydrateRecord(em, record) : null;
   }
 
   async lockById(em: EntityManager, id: string): Promise<WagerTransaction | null> {
     const record = await em.findOne(WagerTransactionRecord, { id }, { lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true });
-    return record ? toDomain(record) : null;
+    return record ? rehydrateRecord(em, record) : null;
   }
 
   async findByIdempotencyKey(em: EntityManager, key: string): Promise<WagerTransaction | null> {
     const record = await em.findOne(WagerTransactionRecord, { idempotencyKey: key }, { refresh: true });
-    return record ? toDomain(record) : null;
+    return record ? rehydrateRecord(em, record) : null;
   }
 
   async findByExternalId(em: EntityManager, providerId: string, externalTransactionId: string): Promise<WagerTransaction | null> {
     const record = await em.findOne(WagerTransactionRecord, { providerId, externalTransactionId }, { refresh: true });
-    return record ? toDomain(record) : null;
+    return record ? rehydrateRecord(em, record) : null;
   }
 
   /** Já existe reversão aplicada para esta transação? */
@@ -93,7 +93,12 @@ function toRecord(tx: WagerTransaction): WagerTransactionRecord {
   };
 }
 
-function toDomain(record: WagerTransactionRecord): WagerTransaction {
+async function rehydrateRecord(em: EntityManager, record: WagerTransactionRecord): Promise<WagerTransaction> {
+  // Identidade é validada antes da moeda; ambas as rejeições podem ter moedas diferentes.
+  const balanceCurrency = record.resultBalance != null &&
+    (record.failureCode === FailureCode.CurrencyMismatch || record.failureCode === FailureCode.WalletPlayerMismatch)
+    ? (await em.findOneOrFail(WalletRecord, { id: record.walletId })).currency
+    : record.currency;
   return WagerTransaction.rehydrate({
     id: record.id,
     providerId: record.providerId,
@@ -112,7 +117,7 @@ function toDomain(record: WagerTransactionRecord): WagerTransaction {
     referenceTransactionId: record.referenceTransactionId ?? undefined,
     failureCode: (record.failureCode ?? undefined) as FailureCode | undefined,
     processedAt: record.processedAt ?? undefined,
-    resultBalance: record.resultBalance ? Money.fromDecimal(record.resultBalance, record.currency) : undefined,
+    resultBalance: record.resultBalance != null ? Money.fromDecimal(record.resultBalance, balanceCurrency) : undefined,
     referenceAttempts: record.referenceAttempts,
     nextReferenceAttemptAt: record.nextReferenceAttemptAt ?? undefined,
   });

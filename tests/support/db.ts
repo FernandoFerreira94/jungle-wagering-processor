@@ -1,9 +1,10 @@
-import './test-env';
+import { assertTestEnvironment } from './test-env';
 import { MikroORM } from '@mikro-orm/postgresql';
 import { loadConfig } from '../../src/config';
 import { ormConfig } from '../../src/database/mikro-orm.config';
 
 export async function testOrm(): Promise<MikroORM> {
+  assertTestEnvironment();
   return MikroORM.init(ormConfig(loadConfig().databaseUrl, 20));
 }
 

@@ -13,8 +13,8 @@ beforeAll(async () => {
   orm = await testOrm();
 });
 afterAll(async () => {
-  await t.close();
-  await orm.close();
+  await t?.close();
+  await orm?.close();
 });
 
 const ledgerCount = async (walletId: string) =>
@@ -133,6 +133,31 @@ describe('POST /wagering/transactions', () => {
     const res = await submitWager(t.url, { walletId, playerId, kind: 'BET', amount: '1.00', currency: 'USD' });
     expect(res.status).toBe(422);
     expect(res.body.failureCode).toBe('CURRENCY_MISMATCH');
+    expect(res.body.balance).toEqual({ amount: '10.00', currency: 'BRL' });
+    const replay = await submitWager(t.url, { walletId, playerId, kind: 'BET', amount: '1.00', currency: 'USD', externalTransactionId: res.sent.externalTransactionId });
+    expect(replay.body).toEqual({ ...res.body, idempotentReplay: true });
+    const lookup = await api(t.url, 'GET', `/wagering/transactions/${res.body.transactionId}`);
+    expect(lookup.body.balance).toEqual({ amount: '10.00', currency: 'BRL' });
+  });
+
+  test('a player mismatch also preserves the wallet currency on replay', async () => {
+    const { walletId } = await createWallet(t.url, '10.00');
+    const input = { walletId, playerId: crypto.randomUUID(), kind: 'BET', amount: '1.00', currency: 'USD' };
+    const first = await submitWager(t.url, input);
+    expect(first.body.failureCode).toBe('WALLET_PLAYER_MISMATCH');
+    const replay = await submitWager(t.url, { ...input, externalTransactionId: first.sent.externalTransactionId });
+    expect(replay.body).toEqual({ ...first.body, idempotentReplay: true });
+    expect(replay.body.balance).toEqual({ amount: '10.00', currency: 'BRL' });
+  });
+
+  test('rejects a credit above the balance limit without losing idempotency', async () => {
+    const { walletId, playerId } = await createWallet(t.url, '999999999999999999.99');
+    const first = await submitWager(t.url, { walletId, playerId, kind: 'WIN', amount: '0.01' });
+    expect(first.status).toBe(422);
+    expect(first.body.failureCode).toBe('BALANCE_LIMIT_EXCEEDED');
+    expect(await ledgerCount(walletId)).toBe(1);
+    const replay = await submitWager(t.url, { walletId, playerId, kind: 'WIN', amount: '0.01', externalTransactionId: first.sent.externalTransactionId });
+    expect(replay.body).toEqual({ ...first.body, idempotentReplay: true });
   });
 
   test('unknown wallet is a 404 and nothing is stored', async () => {

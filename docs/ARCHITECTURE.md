@@ -59,6 +59,7 @@ O enunciado prefere MikroORM, e ele resolve o que este problema precisa:
 
 - `Money.from` aceita só `^\d+(\.\d{1,2})?$` e moeda `^[A-Z]{3}$`. Ele rejeita `NaN`, `Infinity`, notação científica, espaços, vazio, negativo e mais de 2 casas. **Nunca arredonda**: um valor que precisaria de arredondamento é inválido.
 - Nenhum `number` toca dinheiro, nem na leitura do banco: a string do `NUMERIC` vira `bigint` por `Money.fromDecimal`.
+- Contratos e saldo são limitados a `999999999999999999.99`, compatível com `NUMERIC(20,2)`. Totais internos do ledger podem ser maiores; crédito que excederia o limite é rejeitado com `BALANCE_LIMIT_EXCEEDED`, sem efeito financeiro.
 - Operações entre moedas diferentes lançam `CurrencyMismatchError`. A wallet tem uma moeda, e um jogador pode ter uma wallet por moeda (`UNIQUE(player_id, currency)`).
 
 ## 5. Concorrência e transações
@@ -92,6 +93,7 @@ O enunciado prefere MikroORM, e ele resolve o que este problema precisa:
 | Aritmética do ledger | `CHECK` por direção: `balance_after = balance_before ± amount`; `amount > 0` |
 | Ledger append-only | triggers `BEFORE UPDATE OR DELETE` (linha) e `BEFORE TRUNCATE` (statement) que lançam exceção |
 | Saldo = ledger | constraint trigger `DEFERRABLE INITIALLY DEFERRED` em `wallets`: no commit, `balance` precisa ser igual ao `balance_after` do último lançamento |
+| Inserções diretas no ledger | migration `20261024000000`: lock por wallet, continuidade de `balance_before`, sequência crescente e mesma moeda; trigger diferido também no ledger exige saldo correspondente no commit |
 | Estado terminal imutável | trigger em `wager_transactions`: bloqueia `DELETE`, mudança de campos de negócio e qualquer mudança em linha `PROCESSED`/`REJECTED`/`FAILED` |
 | Coerência de status | `CHECK` de `kind`/`status`; `failure_code` presente se e só se `REJECTED`/`FAILED`; `processed_at` em estados terminais; reversão exige referência; valor > 0 (exceto `LOSS`, que aceita 0) |
 | Inbox | `PRIMARY KEY (consumer_name, message_id)` |
@@ -107,6 +109,7 @@ Todas as garantias têm teste em `tests/integration/schema.test.ts`, executando 
 - **Chave:** header `Idempotency-Key` no HTTP, ou `data.idempotencyKey` na mensagem SQS. É obrigatória e tem até 255 caracteres.
 - **`payloadHash`:** SHA-256 (hex) do **JSON canônico** (chaves ordenadas recursivamente, campos ausentes omitidos) dos campos de negócio: `providerId`, `externalTransactionId`, `playerId`, `walletId`, `roundId`, `gameId`, `kind`, `money` (já normalizado, `"25.5"` vira `"25.50"`) e `referenceExternalTransactionId`. A chave e os metadados de transporte não entram (§9).
 - **Mesma chave e mesmo hash:** replay. Devolve **o resultado original**, inclusive o saldo observado naquele momento (`result_balance`, §7.7), com `idempotentReplay: true`.
+- Em rejeição por moeda, o saldo observado é reidratado na moeda da wallet, inclusive em consulta/replay; a moeda da operação rejeitada continua preservada separadamente.
 - **Mesma chave e hash diferente**, ou mesmo `(providerId, externalTransactionId)` com outra chave: `409 IDEMPOTENCY_CONFLICT`, sem efeito.
 - Tudo é verificado **dentro da transação, com a wallet travada**, e garantido pelas constraints únicas. Não há cache em memória (§5.2).
 
@@ -129,6 +132,7 @@ PENDING ──► PROCESSED
 - O worker de pendências roda em toda instância a cada 500 ms. Ele busca as pendências vencidas e reprocessa cada uma na sua própria transação, travando a wallet e depois a transação. Se outra instância já resolveu, ela é ignorada.
 - **Backoff:** `min(1000 ms × 2^tentativa, 60 s)`, até **10 tentativas** (cerca de 4 minutos no total). **Por quê:** na prática a referência atrasa por segundos (a mensagem da BET está logo atrás na fila ou num retry). Alguns minutos cobrem atrasos e retries do SQS com folga, sem deixar o provedor sem resposta por muito tempo. Os valores são configuráveis.
 - **Limite esgotado:** `REJECTED` com `REFERENCE_NOT_FOUND`, e o evento `WagerTransactionRejected` é publicado.
+- Depois dos locks, o use case confere novamente `nextReferenceAttemptAt`: um lote antigo de outra instância não consome tentativas antes da hora.
 - **Erro permanente inesperado** ao reprocessar (bug ou dado corrompido): `FAILED` com `INTERNAL_ERROR`, de imediato. É terminal e auditável, e não fica girando para sempre. Erro transitório só adia a tentativa.
 - O evento `WagerTransactionPendingReference` sai só na **primeira** vez que a transação fica pendente, não a cada nova tentativa.
 
@@ -155,6 +159,7 @@ Interpretações que o enunciado deixa abertas:
 |---|---|---|
 | `INSUFFICIENT_FUNDS` | `BET` maior que o saldo | sim |
 | `REVERSAL_INSUFFICIENT_FUNDS` | reversão (ex.: `ROLLBACK` de `WIN`) deixaria saldo negativo | sim |
+| `BALANCE_LIMIT_EXCEEDED` | crédito excederia o maior saldo suportado | sim |
 | `CURRENCY_MISMATCH` | moeda da operação ≠ moeda da wallet | não |
 | `WALLET_PLAYER_MISMATCH` | wallet não pertence ao player | não |
 | `REFERENCE_NOT_FOUND` | referência não chegou dentro do limite de espera | não |
@@ -227,6 +232,7 @@ O mesmo mapeamento vale em todos os endpoints (`HttpExceptionFilter`). Cada situ
 ## 14. Observabilidade (§12)
 
 - **Logs JSON** (`JsonLogger`): uma linha por evento com `correlationId`, `messageId`, `transactionId`, `walletId`, `providerId`. Chaves sensíveis (`money`, `amount`, `balance`, `payload`, `data`, `authorization`, `password`, `token`) são removidas automaticamente, inclusive em objetos aninhados. O `correlationId` vem do header `x-correlation-id` (ou é gerado) e, no SQS, é o `messageId`.
+- Exceções carregam somente classe e código seguro nos logs. `Error.message` é omitido porque o driver pode incluir SQL interpolado e payloads financeiros.
 - **Métricas Prometheus** em `/metrics`: contadores por tipo e status, replays, duplicatas de inbox, retries e DLQ por motivo, conflitos de lock (`lock_timeout`, `unique_race`), tamanho e atraso da outbox, histograma de latência por canal e divergências de reconciliação.
 - **Health:** `/health/live` (processo) e `/health/ready` (Postgres e SQS respondem).
 - **Reconciliação:** `POST /wallets/:id/reconciliation` lê saldo e ledger sob `FOR SHARE` e compara. Divergência gera log `error`, métrica e `consistent: false`, **sem correção automática**: corrigir dinheiro é decisão humana.

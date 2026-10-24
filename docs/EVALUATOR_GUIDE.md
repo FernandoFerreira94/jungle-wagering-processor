@@ -90,9 +90,9 @@ Estratégia de lock e o motivo da escolha: [`ARCHITECTURE.md` §5](ARCHITECTURE.
 ### Testes (10)
 
 ```
-bun run test:unit          98 pass
-bun run test:integration   57 pass
-bun run test:concurrency    8 pass  (5 execuções seguidas sem falha)
+bun run test:unit
+bun run test:integration
+bun run test:concurrency
 ```
 
 ### Observabilidade (5)
@@ -108,7 +108,12 @@ bun run test:concurrency    8 pass  (5 execuções seguidas sem falha)
 - [`LOAD_TEST.md`](LOAD_TEST.md): diferencial opcional, com ambiente, metodologia e análise.
 - [`DIARIO.md`](DIARIO.md): diário do desenvolvimento, fase por fase.
 
-## Verificação feita antes da entrega
+## Verificação atual (24/10/2026)
 
-- `docker compose up -d --build`: as três instâncias sobem, `/health/ready` responde `ok` nas portas 3001–3003, e os exemplos do README funcionam (BET, replay, ROLLBACK, ledger, reconciliação e mensagem pela fila).
-- Suítes de unidade, integração e concorrência verdes (contagens acima).
+- Bun 1.4.4: 108 testes de unidade passaram, sem falhas; `bun run typecheck` passou.
+- Com PostgreSQL 16 e LocalStack reais: **62 testes de integração** e **8 de concorrência** passaram, sem falhas. O comando completo `bun run test` terminou com sucesso: **178 testes**.
+- `docker compose up -d --build` passou; a migration adicional `20261024000000` foi aplicada. O teste de migrations reversíveis também passou.
+- Readiness nas portas 3001, 3002 e 3003: PostgreSQL e SQS `up` nas três instâncias reconstruídas.
+- `docker compose exec -T app-1 bun scripts/demo.ts` passou todos os passos, incluindo replay entre instâncias, disputa de saldo, referência fora de ordem, duplicata pela fila e reconciliação final.
+- As regressões cobrem moeda do saldo em replay (inclusive player incorreto), limite monetário, isolamento dos recursos de teste, logs sem SQL financeiro, backoff concorrente e proteção da cadeia do ledger.
+- Esta validação é local. O teste de carga opcional não foi repetido nesta revisão; os números em `LOAD_TEST.md` pertencem ao experimento anterior.

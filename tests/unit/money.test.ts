@@ -5,6 +5,12 @@ import { CurrencyMismatchError, InvalidMoneyError } from '../../src/shared/error
 const brl = (amount: string) => Money.from({ amount, currency: 'BRL' });
 
 describe('Money', () => {
+  test('rejects inputs above the supported limit but can rehydrate larger ledger totals', () => {
+    expect(brl('999999999999999999.99').toJSON().amount).toBe('999999999999999999.99');
+    expect(() => brl('1000000000000000000.00')).toThrow(InvalidMoneyError);
+    expect(Money.fromDecimal('1000000000000000000.00', 'BRL').toJSON().amount).toBe('1000000000000000000.00');
+  });
+
   test('always serializes with two decimal places', () => {
     expect(brl('25.5').toJSON()).toEqual({ amount: '25.50', currency: 'BRL' });
     expect(brl('25').toString()).toBe('25.00 BRL');
@@ -34,7 +40,7 @@ describe('Money', () => {
     expect(Money.zero('USD').equals(Money.from({ amount: '0.00', currency: 'USD' }))).toBe(true);
   });
 
-  test.each(['NaN', 'Infinity', '-Infinity', '1e3', '', ' 25.00', '25.00 ', '25.001', '-1.00', '1,00', '+1.00', '.50', '1.'])(
+  test.each(['NaN', 'Infinity', '-Infinity', '1e3', '', ' 25.00', '25.00 ', '25.00\n', '25.001', '-1.00', '1,00', '+1.00', '.50', '1.'])(
     'rejects invalid amount %p without rounding',
     (amount) => {
       expect(() => brl(amount)).toThrow(InvalidMoneyError);

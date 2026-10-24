@@ -10,7 +10,7 @@ beforeAll(async () => {
   await resetDatabase();
   orm = await testOrm();
 });
-afterAll(() => orm.close());
+afterAll(() => orm?.close());
 
 /** Wallet + transação OPENING + ledger coerentes, numa única transação. */
 async function seedWallet(balance = '100.00'): Promise<{ walletId: string; playerId: string }> {
@@ -60,6 +60,25 @@ async function insertTransaction(
 }
 
 describe('schema guarantees', () => {
+  test('a standalone ledger insert cannot commit without updating the wallet', async () => {
+    const { walletId, playerId } = await seedWallet();
+    const txId = await insertTransaction(walletId, playerId, { kind: 'WIN', status: 'PROCESSED', amount: '50.00' });
+    await expect(sql(orm,
+      `INSERT INTO wallet_ledger_entries (id, wallet_id, transaction_id, direction, amount, currency, balance_before, balance_after, created_at)
+       VALUES (?, ?, ?, 'CREDIT', 50, 'BRL', 100, 150, now())`, [newId(), walletId, txId],
+    )).rejects.toThrow(/does not match ledger/);
+  });
+
+  test('a matching final balance cannot hide a broken ledger chain', async () => {
+    const { walletId, playerId } = await seedWallet();
+    const txId = await insertTransaction(walletId, playerId, { kind: 'WIN', status: 'PROCESSED', amount: '50.00' });
+    await expect(orm.em.fork().transactional(async (em) => {
+      await em.execute(`UPDATE wallets SET balance = 150 WHERE id = ?`, [walletId]);
+      await em.execute(
+        `INSERT INTO wallet_ledger_entries (id, wallet_id, transaction_id, direction, amount, currency, balance_before, balance_after, created_at)
+         VALUES (?, ?, ?, 'CREDIT', 40, 'BRL', 110, 150, now())`, [newId(), walletId, txId]);
+    })).rejects.toThrow(/ledger chain/);
+  });
   test('wallet balance can never be negative', async () => {
     const { walletId } = await seedWallet();
     await expect(sql(orm, `UPDATE wallets SET balance = -1 WHERE id = ?`, [walletId])).rejects.toThrow(

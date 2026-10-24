@@ -57,7 +57,11 @@ function sanitize(fields: LogFields): LogFields {
 
 /** Remove as chaves sensíveis também em objetos e listas aninhados. */
 function sanitizeValue(value: unknown): unknown {
-  if (value instanceof Error) return { name: value.name, message: value.message };
+  // O driver inclui SQL e parâmetros em message; só classe e código são seguros.
+  if (value instanceof Error) {
+    const code = (value as Error & { code?: unknown }).code;
+    return { name: value.name, ...(typeof code === 'string' && /^[A-Z0-9_]{3,64}$/.test(code) ? { code } : {}) };
+  }
   if (Array.isArray(value)) return value.map(sanitizeValue);
   if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
     return sanitize(value as LogFields);

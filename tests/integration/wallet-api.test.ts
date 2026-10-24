@@ -13,8 +13,8 @@ beforeAll(async () => {
   orm = await testOrm();
 });
 afterAll(async () => {
-  await t.close();
-  await orm.close();
+  await t?.close();
+  await orm?.close();
 });
 
 describe('wallet API', () => {

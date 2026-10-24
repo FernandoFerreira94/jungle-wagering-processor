@@ -19,10 +19,10 @@ beforeAll(async () => {
   sqs = testSqs();
 });
 afterAll(async () => {
-  await consumer.stop();
-  await t.close();
-  await orm.close();
-  sqs.destroy();
+  await consumer?.stop();
+  await t?.close();
+  await orm?.close();
+  sqs?.destroy();
 });
 beforeEach(() => drainAll(sqs));
 

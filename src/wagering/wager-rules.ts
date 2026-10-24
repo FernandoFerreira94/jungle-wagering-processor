@@ -31,6 +31,7 @@ export function decideWager({ tx, wallet, reference, referenceAlreadyReversed }:
   if (!tx.affectsBalance()) return { kind: 'no-balance-effect' };
 
   const direction = tx.ledgerDirectionFor(reference);
+  if (direction === LedgerDirection.Credit && !wallet.canCredit(tx.money)) return reject(FailureCode.BalanceLimitExceeded);
   if (direction === LedgerDirection.Debit && !wallet.canDebit(tx.money)) {
     return reject(tx.isReversal() ? FailureCode.ReversalInsufficientFunds : FailureCode.InsufficientFunds);
   }

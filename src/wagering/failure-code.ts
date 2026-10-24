@@ -2,6 +2,7 @@
 export enum FailureCode {
   InsufficientFunds = 'INSUFFICIENT_FUNDS',
   ReversalInsufficientFunds = 'REVERSAL_INSUFFICIENT_FUNDS',
+  BalanceLimitExceeded = 'BALANCE_LIMIT_EXCEEDED',
   CurrencyMismatch = 'CURRENCY_MISMATCH',
   WalletPlayerMismatch = 'WALLET_PLAYER_MISMATCH',
   ReferenceNotFound = 'REFERENCE_NOT_FOUND',
@@ -21,6 +22,7 @@ export enum FailureCode {
 export const FAILURE_CODE_INFO: Record<FailureCode, { retryable: boolean; description: string }> = {
   [FailureCode.InsufficientFunds]: { retryable: true, description: 'BET maior que o saldo disponível' },
   [FailureCode.ReversalInsufficientFunds]: { retryable: true, description: 'Reversão deixaria o saldo negativo' },
+  [FailureCode.BalanceLimitExceeded]: { retryable: true, description: 'Crédito excederia o limite de saldo suportado' },
   [FailureCode.CurrencyMismatch]: { retryable: false, description: 'Moeda da operação diferente da wallet' },
   [FailureCode.WalletPlayerMismatch]: { retryable: false, description: 'A wallet não pertence ao player informado' },
   [FailureCode.ReferenceNotFound]: { retryable: false, description: 'Referência não chegou dentro do limite de espera' },

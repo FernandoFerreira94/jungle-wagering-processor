@@ -55,6 +55,12 @@ bun run test:load         # opcional; ver docs/LOAD_TEST.md
 
 Os testes usam o banco `wagering_test` e as filas `test-*`, nunca os da aplicação. Nenhum teste de integração ou de concorrência usa mock de Postgres ou SQS.
 
+O ambiente de testes preserva host/porta de `DATABASE_URL`, acrescenta `_test` ao nome do banco e força o prefixo `test-`. Para indicar outro banco de testes, use `TEST_DATABASE_URL` (o nome precisa terminar em `_test`). Por exemplo, se o PostgreSQL local estiver na porta 5452:
+
+```bash
+TEST_DATABASE_URL=postgres://wagering:wagering@localhost:5452/wagering_test bun run test
+```
+
 Para ver os logs das instâncias durante os testes: `TEST_LOG=1 bun run test:concurrency`.
 
 Migrations à mão: `bun run migration:up` e `bun run migration:down` (usam `DATABASE_URL`).
@@ -128,6 +134,7 @@ A lista de `failureCode` está em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#
 ## Observabilidade
 
 - **Logs:** JSON, uma linha por evento, com `correlationId` (header `x-correlation-id`, gerado se ausente), `messageId`, `transactionId`, `walletId` e `providerId`. Valores financeiros e payloads não são logados.
+- Erros são registrados por classe e código; mensagens brutas de exceções são omitidas porque o driver pode incluir SQL e valores financeiros.
 - **Métricas:** `GET /metrics` (Prometheus). As principais são `wager_transactions_total{kind,status}`, `idempotent_replays_total`, `inbox_duplicates_total`, `sqs_retries_total`, `sqs_dlq_messages_total{reason}`, `lock_conflicts_total{type}`, `outbox_pending_messages`, `outbox_lag_seconds`, `wager_processing_duration_seconds` e `reconciliation_mismatches_total`.
 - **Health:** `GET /health/live` (processo vivo) e `GET /health/ready` (Postgres e SQS acessíveis).
 

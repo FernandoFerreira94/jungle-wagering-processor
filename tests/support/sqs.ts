@@ -1,12 +1,17 @@
-import './test-env';
+import { assertTestEnvironment } from './test-env';
 import { loadConfig } from '../../src/config';
 import { SqsGateway } from '../../src/messaging/sqs';
 
 export const queues = loadConfig().queues;
-export const testSqs = () => new SqsGateway(loadConfig().aws);
+export const testSqs = () => {
+  assertTestEnvironment();
+  return new SqsGateway(loadConfig().aws);
+};
 
 /** Lê e apaga tudo o que estiver visível na fila, até ela ficar vazia. */
 export async function drainQueue(sqs: SqsGateway, queue: string, { quietMs = 500 } = {}): Promise<any[]> {
+  assertTestEnvironment();
+  if (!queue.startsWith('test-')) throw new Error('Refusing to drain a non-test queue');
   const bodies: any[] = [];
   let emptySince = Date.now();
   while (Date.now() - emptySince < quietMs) {

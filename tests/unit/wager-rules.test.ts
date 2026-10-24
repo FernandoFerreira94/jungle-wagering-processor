@@ -11,6 +11,10 @@ const decide = (input: Partial<Parameters<typeof decideWager>[0]> & Pick<Paramet
   decideWager({ wallet: aWallet('100.00'), referenceAlreadyReversed: false, ...input });
 
 describe('decideWager', () => {
+  test('rejects a credit that would overflow the wallet balance', () => {
+    expect(decide({ wallet: aWallet('999999999999999999.99'), tx: aTransaction({ kind: Kind.Win, money: brl('0.01') }) }))
+      .toEqual({ kind: 'reject', code: FailureCode.BalanceLimitExceeded });
+  });
   test('BET debits when there is enough balance', () => {
     expect(decide({ tx: aTransaction({ money: brl('100.00') }) })).toEqual({ kind: 'apply', direction: LedgerDirection.Debit });
   });

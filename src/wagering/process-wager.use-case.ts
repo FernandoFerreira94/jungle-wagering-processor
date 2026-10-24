@@ -93,6 +93,7 @@ export class ProcessWagerUseCase {
         if (!wallet || !tx || tx.status !== WagerTransactionStatus.PendingReference) return null;
         kind = tx.kind;
         const now = new Date();
+        if (tx.nextReferenceAttemptAt && tx.nextReferenceAttemptAt > now) return null;
         const outcome = await this.decideAndApply(em, tx, wallet, { correlationId, now }, true);
         await this.transactions.update(em, tx);
         await this.persistEffects(em, wallet, outcome);

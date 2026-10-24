@@ -9,7 +9,7 @@ beforeAll(async () => {
   await resetDatabase();
   t = await createTestApp();
 });
-afterAll(() => t.close());
+afterAll(() => t?.close());
 
 describe('GET /metrics', () => {
   test('exposes transaction, replay, latency and outbox metrics', async () => {

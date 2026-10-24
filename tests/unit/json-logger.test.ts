@@ -37,7 +37,18 @@ describe('JsonLogger', () => {
   test('serializes errors without stack traces or payloads', () => {
     const lines: string[] = [];
     new JsonLogger((line) => lines.push(line)).error('failed', { error: new Error('boom') });
-    expect(JSON.parse(lines[0] as string).error).toEqual({ name: 'Error', message: 'boom' });
+    expect(JSON.parse(lines[0] as string).error).toEqual({ name: 'Error' });
+  });
+
+  test('never logs SQL or financial payloads embedded in error messages', () => {
+    const lines: string[] = [];
+    const error = Object.assign(new Error('insert into outbox_messages values (\'{"amount":"25.00","token":"private"}\')'), { code: '22003' });
+    new JsonLogger((line) => lines.push(line)).error('request failed', { error, correlationId: 'c-1' });
+    const logged = lines[0]!;
+    expect(logged).not.toContain('25.00');
+    expect(logged).not.toContain('private');
+    expect(logged).not.toContain('insert into');
+    expect(JSON.parse(logged)).toMatchObject({ correlationId: 'c-1', error: { name: 'Error', code: '22003' } });
   });
 
   test('respects the minimum level', () => {

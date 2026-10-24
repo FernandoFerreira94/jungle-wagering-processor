@@ -18,13 +18,28 @@ beforeAll(async () => {
   orm = await testOrm();
 });
 afterAll(async () => {
-  await t.close();
-  await orm.close();
+  await t?.close();
+  await orm?.close();
 });
 
 const transaction = async (id: string) => (await api(t.url, 'GET', `/wagering/transactions/${id}`)).body;
 
 describe('out-of-order references', () => {
+  test('concurrent stale batches cannot spend retries before the next scheduled time', async () => {
+    const { walletId, playerId } = await createWallet(t.url, '100.00');
+    const refund = await submitWager(t.url, { walletId, playerId, kind: 'REFUND', reference: 'backoff-reference' });
+    await sql(orm, `UPDATE wager_transactions SET next_reference_attempt_at = now() - interval '1 second' WHERE id = ?`, [refund.body.transactionId]);
+    const other = await createTestApp({ pendingReference: { maxAttempts: 3, baseDelayMs: 60000, maxDelayMs: 60000 } });
+    try {
+      const useCase = other.app.get(ProcessWagerUseCase);
+      const results = await Promise.all(Array.from({ length: 3 }, () => useCase.retryPending(refund.body.transactionId, 'backoff-test')));
+      expect(results.filter(Boolean)).toHaveLength(1);
+      const [row] = await sql<{ status: string; reference_attempts: number }>(orm, `SELECT status, reference_attempts FROM wager_transactions WHERE id = ?`, [refund.body.transactionId]);
+      expect(row).toEqual({ status: 'PENDING_REFERENCE', reference_attempts: 1 });
+    } finally {
+      await other.close();
+    }
+  });
   test('ROLLBACK that arrives before its BET waits, then is applied by the worker', async () => {
     const { walletId, playerId } = await createWallet(t.url, '100.00');
     const rollback = await submitWager(t.url, { walletId, playerId, kind: 'ROLLBACK', amount: '30.00', reference: 'late-bet' });
@@ -64,7 +79,10 @@ describe('out-of-order references', () => {
   test('gives up after the attempt limit with REFERENCE_NOT_FOUND and an event', async () => {
     const { walletId, playerId } = await createWallet(t.url, '100.00');
     const refund = await submitWager(t.url, { walletId, playerId, kind: 'REFUND', reference: 'never-arrives' });
-    for (let i = 0; i < 3; i++) await worker.runOnce(FUTURE());
+    for (let i = 0; i < 3; i++) {
+      await Bun.sleep(2);
+      await worker.runOnce(FUTURE());
+    }
     expect(await transaction(refund.body.transactionId)).toMatchObject({ status: 'REJECTED', failureCode: 'REFERENCE_NOT_FOUND' });
     const events = await sql<{ event_type: string }>(
       orm,

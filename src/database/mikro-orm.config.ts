@@ -2,6 +2,7 @@ import { Migrator } from '@mikro-orm/migrations';
 import { defineConfig, PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { ALL_SCHEMAS } from './entities';
 import { Migration20261022000000 } from './migrations/Migration20261022000000';
+import { Migration20261024000000 } from './migrations/Migration20261024000000';
 
 export function ormConfig(databaseUrl: string, poolMax = 10) {
   return defineConfig({
@@ -15,7 +16,10 @@ export function ormConfig(databaseUrl: string, poolMax = 10) {
       transactional: true,
       allOrNothing: true,
       silent: true,
-      migrationsList: [{ name: 'Migration20261022000000', class: Migration20261022000000 }],
+      migrationsList: [
+        { name: 'Migration20261022000000', class: Migration20261022000000 },
+        { name: 'Migration20261024000000', class: Migration20261024000000 },
+      ],
     },
     pool: { min: 0, max: poolMax },
     allowGlobalContext: false,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { CurrencyMismatchError, InsufficientFundsError } from '../../src/shared/errors';
+import { CurrencyMismatchError, DomainError, InsufficientFundsError } from '../../src/shared/errors';
 import { Money } from '../../src/shared/money';
 import { LedgerDirection } from '../../src/wallet/ledger-entry';
 import { NOW, aWallet, brl } from '../support/builders';
@@ -7,6 +7,12 @@ import { NOW, aWallet, brl } from '../support/builders';
 const later = new Date(NOW.getTime() + 1000);
 
 describe('Wallet', () => {
+  test('refuses a credit above the balance limit without changing its state', () => {
+    const wallet = aWallet('999999999999999999.99');
+    expect(() => wallet.credit(brl('0.01'), 'overflow', later)).toThrow(DomainError);
+    expect(wallet.balance.toJSON().amount).toBe('999999999999999999.99');
+    expect(wallet.version).toBe(1);
+  });
   test('starts at version 1 with the opening entry matching the initial balance', () => {
     const wallet = aWallet('1000.00');
     expect(wallet.version).toBe(1);

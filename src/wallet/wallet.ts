@@ -26,6 +26,7 @@ export class Wallet {
 
   static open(props: { id: string; playerId: string; initialBalance: Money; now: Date }): Wallet {
     if (props.initialBalance.isNegative()) throw new DomainError('INVALID_WALLET', 'Initial balance cannot be negative');
+    if (props.initialBalance.minor > Money.MAX_MINOR) throw new DomainError('BALANCE_LIMIT_EXCEEDED', 'Initial balance exceeds the supported limit');
     return new Wallet(
       props.id,
       props.playerId,
@@ -86,8 +87,13 @@ export class Wallet {
   }
 
   credit(money: Money, transactionId: string, at: Date): WalletLedgerEntry {
-    this.assertSameCurrency(money);
+    if (!this.canCredit(money)) throw new DomainError('BALANCE_LIMIT_EXCEEDED', 'Balance exceeds the supported limit');
     return this.move(LedgerDirection.Credit, money, transactionId, at);
+  }
+
+  canCredit(money: Money): boolean {
+    this.assertSameCurrency(money);
+    return this._balance.add(money).minor <= Money.MAX_MINOR;
   }
 
   apply(direction: LedgerDirection, money: Money, transactionId: string, at: Date): WalletLedgerEntry {

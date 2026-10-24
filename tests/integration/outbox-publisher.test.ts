@@ -19,9 +19,9 @@ beforeAll(async () => {
   await drainAll(sqs);
 });
 afterAll(async () => {
-  await t.close();
-  await orm.close();
-  sqs.destroy();
+  await t?.close();
+  await orm?.close();
+  sqs?.destroy();
 });
 
 const pending = async () =>

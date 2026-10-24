@@ -20,8 +20,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stopAll(running);
-  await orm.close();
-  sqs.destroy();
+  await orm?.close();
+  sqs?.destroy();
 });
 
 async function start(count: number, env: Record<string, string> = {}): Promise<Instance[]> {
